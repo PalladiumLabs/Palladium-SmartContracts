@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.19;
-import "../Dependencies/GravitaMath.sol";
+import "../Dependencies/PalladiumMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../Interfaces/IBorrowerOperations.sol";
 import "../Interfaces/IVesselManager.sol";
 import "../Interfaces/IStabilityPool.sol";
 import "../Interfaces/IPriceFeed.sol";
-import "../Interfaces/IGRVTStaking.sol";
+import "../Interfaces/IPDMStaking.sol";
 import "./BorrowerOperationsScript.sol";
 import "./ETHTransferScript.sol";
-import "./GRVTStakingScript.sol";
+import "./PDMStakingScript.sol";
 
-contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, GRVTStakingScript {
+contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, PDMStakingScript {
 	struct Local_var {
 		address _asset;
 		uint256 _maxFee;
@@ -27,13 +27,13 @@ contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, 
 	IStabilityPool immutable stabilityPool;
 	IPriceFeed immutable priceFeed;
 	IERC20 immutable debtToken;
-	IERC20 immutable grvtToken;
+	IERC20 immutable pdmToken;
 
 	constructor(
 		address _borrowerOperationsAddress,
 		address _vesselManagerAddress,
-		address _GRVTStakingAddress
-	) BorrowerOperationsScript(IBorrowerOperations(_borrowerOperationsAddress)) GRVTStakingScript(_GRVTStakingAddress) {
+		address _PDMStakingAddress
+	) BorrowerOperationsScript(IBorrowerOperations(_borrowerOperationsAddress)) PDMStakingScript(_PDMStakingAddress) {
 		IVesselManager vesselManagerCached = IVesselManager(_vesselManagerAddress);
 		vesselManager = vesselManagerCached;
 
@@ -46,13 +46,13 @@ contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, 
 		address debtTokenCached = address(vesselManagerCached.debtToken());
 		debtToken = IERC20(debtTokenCached);
 
-		address grvtTokenCached = address(IGRVTStaking(_GRVTStakingAddress).grvtToken());
-		grvtToken = IERC20(grvtTokenCached);
+		address pdmTokenCached = address(IPDMStaking(_PDMStakingAddress).pdmToken());
+		pdmToken = IERC20(pdmTokenCached);
 
-		// IGRVTStaking grvtStakingCached = vesselManagerCached.grvtStaking();
+		// IPDMStaking pdmStakingCached = vesselManagerCached.pdmStaking();
 		// require(
-		// 	_GRVTStakingAddress == address(grvtStakingCached),
-		// 	"BorrowerWrappersScript: Wrong GRVTStaking address"
+		// 	_PDMStakingAddress == address(pdmStakingCached),
+		// 	"BorrowerWrappersScript: Wrong PDMStaking address"
 		// );
 	}
 
@@ -81,13 +81,13 @@ contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, 
 	function claimSPRewardsAndRecycle(address _asset, uint256 _maxFee, address _upperHint, address _lowerHint) external {
 		Local_var memory vars = Local_var(_asset, _maxFee, _upperHint, _lowerHint, 0);
 		uint256 collBalanceBefore = address(this).balance;
-		uint256 GRVTBalanceBefore = grvtToken.balanceOf(address(this));
+		uint256 PDMBalanceBefore = pdmToken.balanceOf(address(this));
 
 		// Claim rewards
 		IStabilityPool(stabilityPool).withdrawFromSP(0);
 
 		uint256 collBalanceAfter = address(this).balance;
-		uint256 GRVTBalanceAfter = grvtToken.balanceOf(address(this));
+		uint256 PDMBalanceAfter = pdmToken.balanceOf(address(this));
 		uint256 claimedCollateral = collBalanceAfter - collBalanceBefore;
 
 		// Add claimed ETH to vessel, get more VUSD and stake it into the Stability Pool
@@ -109,10 +109,10 @@ contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, 
 			}
 		}
 
-		// Stake claimed GRVT
-		uint256 claimedGRVT = GRVTBalanceAfter - GRVTBalanceBefore;
-		if (claimedGRVT > 0) {
-			IGRVTStaking(grvtStaking).stake(claimedGRVT);
+		// Stake claimed PDM
+		uint256 claimedPDM = PDMBalanceAfter - PDMBalanceBefore;
+		if (claimedPDM > 0) {
+			IPDMStaking(pdmStaking).stake(claimedPDM);
 		}
 	}
 
@@ -126,10 +126,10 @@ contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, 
 
 		uint256 collBalanceBefore = address(this).balance;
 		uint256 VUSDBalanceBefore = IDebtToken(debtToken).balanceOf(address(this));
-		uint256 GRVTBalanceBefore = grvtToken.balanceOf(address(this));
+		uint256 PDMBalanceBefore = pdmToken.balanceOf(address(this));
 
 		// Claim gains
-		IGRVTStaking(grvtStaking).unstake(0);
+		IPDMStaking(pdmStaking).unstake(0);
 
 		uint256 gainedCollateral = address(this).balance - collBalanceBefore; // stack too deep issues :'(
 		uint256 gainedVUSD = IDebtToken(debtToken).balanceOf(address(this)) - VUSDBalanceBefore;
@@ -153,11 +153,11 @@ contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, 
 		if (totalVUSD > 0) {
 			IStabilityPool(stabilityPool).provideToSP(totalVUSD);
 
-			// Providing to Stability Pool also triggers GRVT claim, so stake it if any
-			uint256 GRVTBalanceAfter = grvtToken.balanceOf(address(this));
-			uint256 claimedGRVT = GRVTBalanceAfter - GRVTBalanceBefore;
-			if (claimedGRVT > 0) {
-				IGRVTStaking(grvtStaking).stake(claimedGRVT);
+			// Providing to Stability Pool also triggers PDM claim, so stake it if any
+			uint256 PDMBalanceAfter = pdmToken.balanceOf(address(this));
+			uint256 claimedPDM = PDMBalanceAfter - PDMBalanceBefore;
+			if (claimedPDM > 0) {
+				IPDMStaking(pdmStaking).stake(claimedPDM);
 			}
 		}
 	}
@@ -168,7 +168,8 @@ contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, 
 
 		uint256 VUSDAmount = (_collateral * price) / ICR;
 		uint256 borrowingRate = IVesselManager(vesselManager).adminContract().getBorrowingFee(_asset);
-		uint256 netDebt = (VUSDAmount * GravitaMath.DECIMAL_PRECISION) / (GravitaMath.DECIMAL_PRECISION + borrowingRate);
+		uint256 netDebt = (VUSDAmount * PalladiumMath.DECIMAL_PRECISION) /
+			(PalladiumMath.DECIMAL_PRECISION + borrowingRate);
 
 		return netDebt;
 	}

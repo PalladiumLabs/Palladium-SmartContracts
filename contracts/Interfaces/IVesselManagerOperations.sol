@@ -2,10 +2,10 @@
 
 pragma solidity ^0.8.19;
 
-import "./IGravitaBase.sol";
+import "./IPalladiumBase.sol";
 import "./IVesselManager.sol";
 
-interface IVesselManagerOperations is IGravitaBase {
+interface IVesselManagerOperations is IPalladiumBase {
 	// Events -----------------------------------------------------------------------------------------------------------
 
 	event Redemption(
@@ -32,9 +32,7 @@ interface IVesselManagerOperations is IGravitaBase {
 		IVesselManager.VesselManagerOperation _operation
 	);
 
-	event RedemptionSoftenParamChanged(
-		uint256 _redemptionSofteningParam
-	);
+	event RedemptionSoftenParamChanged(uint256 _redemptionSofteningParam);
 
 	// Custom Errors ----------------------------------------------------------------------------------------------------
 

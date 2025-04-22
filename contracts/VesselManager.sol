@@ -4,11 +4,11 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-import "./Dependencies/GravitaBase.sol";
+import "./Dependencies/PalladiumBase.sol";
 import "./Interfaces/IVesselManager.sol";
 import "./Interfaces/IFeeCollector.sol";
 
-contract VesselManager is IVesselManager, UUPSUpgradeable, ReentrancyGuardUpgradeable, GravitaBase {
+contract VesselManager is IVesselManager, UUPSUpgradeable, ReentrancyGuardUpgradeable, PalladiumBase {
 	// Constants ------------------------------------------------------------------------------------------------------
 
 	string public constant NAME = "VesselManager";
@@ -130,14 +130,14 @@ contract VesselManager is IVesselManager, UUPSUpgradeable, ReentrancyGuardUpgrad
 	function getNominalICR(address _asset, address _borrower) external view override returns (uint256) {
 		(uint256 currentAsset, uint256 currentDebt) = _getCurrentVesselAmounts(_asset, _borrower);
 
-		uint256 NICR = GravitaMath._computeNominalCR(currentAsset, currentDebt);
+		uint256 NICR = PalladiumMath._computeNominalCR(currentAsset, currentDebt);
 		return NICR;
 	}
 
 	// Return the current collateral ratio (ICR) of a given Vessel. Takes a vessel's pending coll and debt rewards from redistributions into account.
 	function getCurrentICR(address _asset, address _borrower, uint256 _price) public view override returns (uint256) {
 		(uint256 currentAsset, uint256 currentDebt) = _getCurrentVesselAmounts(_asset, _borrower);
-		uint256 ICR = GravitaMath._computeCR(currentAsset, currentDebt, _price);
+		uint256 ICR = PalladiumMath._computeCR(currentAsset, currentDebt, _price);
 		return ICR;
 	}
 
@@ -218,7 +218,7 @@ contract VesselManager is IVesselManager, UUPSUpgradeable, ReentrancyGuardUpgrad
 		return _calcRedemptionRate(_asset, _calcDecayedBaseRate(_asset));
 	}
 
-	// Called by Gravita contracts ------------------------------------------------------------------------------------
+	// Called by Palladium contracts ------------------------------------------------------------------------------------
 
 	function addVesselOwnerToArray(
 		address _asset,
@@ -303,7 +303,7 @@ contract VesselManager is IVesselManager, UUPSUpgradeable, ReentrancyGuardUpgrad
 		uint256 decayedBaseRate = _calcDecayedBaseRate(_asset);
 		uint256 redeemedDebtFraction = (_assetDrawn * _price) / _totalDebtTokenSupply;
 		uint256 newBaseRate = decayedBaseRate + (redeemedDebtFraction / BETA);
-		newBaseRate = GravitaMath._min(newBaseRate, DECIMAL_PRECISION);
+		newBaseRate = PalladiumMath._min(newBaseRate, DECIMAL_PRECISION);
 		assert(newBaseRate != 0);
 		baseRate[_asset] = newBaseRate;
 		emit BaseRateUpdated(_asset, newBaseRate);
@@ -586,7 +586,8 @@ contract VesselManager is IVesselManager, UUPSUpgradeable, ReentrancyGuardUpgrad
 	}
 
 	function _calcRedemptionRate(address _asset, uint256 _baseRate) internal view returns (uint256) {
-		return GravitaMath._min(IAdminContract(adminContract).getRedemptionFeeFloor(_asset) + _baseRate, DECIMAL_PRECISION);
+		return
+			PalladiumMath._min(IAdminContract(adminContract).getRedemptionFeeFloor(_asset) + _baseRate, DECIMAL_PRECISION);
 	}
 
 	function _calcRedemptionFee(uint256 _redemptionRate, uint256 _assetDraw) internal pure returns (uint256) {
@@ -608,7 +609,7 @@ contract VesselManager is IVesselManager, UUPSUpgradeable, ReentrancyGuardUpgrad
 
 	function _calcDecayedBaseRate(address _asset) internal view returns (uint256) {
 		uint256 minutesPassed = _minutesPassedSinceLastFeeOp(_asset);
-		uint256 decayFactor = GravitaMath._decPow(MINUTE_DECAY_FACTOR, minutesPassed);
+		uint256 decayFactor = PalladiumMath._decPow(MINUTE_DECAY_FACTOR, minutesPassed);
 		return (baseRate[_asset] * decayFactor) / DECIMAL_PRECISION;
 	}
 
@@ -642,7 +643,7 @@ contract VesselManager is IVesselManager, UUPSUpgradeable, ReentrancyGuardUpgrad
 		return VesselOwners[_asset][_index];
 	}
 
-	// --- Vessel property setters, called by Gravita's BorrowerOperations/VMRedemptions/VMLiquidations ---------------
+	// --- Vessel property setters, called by Palladium's BorrowerOperations/VMRedemptions/VMLiquidations ---------------
 
 	function setVesselStatus(address _asset, address _borrower, uint256 _num) external override onlyBorrowerOperations {
 		Vessels[_borrower][_asset].status = Status(_num);
@@ -703,4 +704,3 @@ contract VesselManager is IVesselManager, UUPSUpgradeable, ReentrancyGuardUpgrad
 
 	function _authorizeUpgrade(address) internal override onlyOwner {}
 }
-

@@ -3,15 +3,14 @@
 pragma solidity ^0.8.19;
 import "../Dependencies/ERC20Permit.sol";
 
-contract GRVTToken is ERC20Permit {
-
-	string public constant NAME = "GRVTToken";
+contract PDMToken is ERC20Permit {
+	string public constant NAME = "PDMToken";
 
 	uint256 internal _1_MILLION = 1e24; // 1e6 * 1e18 = 1e24
 
 	address public immutable treasury;
 
-	constructor(address _treasurySig) ERC20("Gravita", "GRVT") {
+	constructor(address _treasurySig) ERC20("Palladium", "PDM") {
 		require(_treasurySig != address(0), "Invalid Treasury Sig");
 		treasury = _treasurySig;
 

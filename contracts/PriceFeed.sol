@@ -178,7 +178,7 @@ contract PriceFeed is IPriceFeed, OwnableUpgradeable, UUPSUpgradeable, Addresses
 	}
 
 	/**
-	 * @dev Scales oracle's response up/down to Gravita's target precision; returns unaltered price if already on
+	 * @dev Scales oracle's response up/down to Palladium's target precision; returns unaltered price if already on
 	 *     target digits.
 	 */
 	function _scalePriceByDigits(uint256 _price, uint256 _priceDigits) internal pure returns (uint256) {

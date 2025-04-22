@@ -3,7 +3,6 @@
 pragma solidity ^0.8.19;
 
 interface IFeeCollector {
-
 	// Events -----------------------------------------------------------------------------------------------------------
 
 	event FeeRecordUpdated(address borrower, address asset, uint256 from, uint256 to, uint256 amount);
@@ -24,22 +23,14 @@ interface IFeeCollector {
 	error FeeCollector__ArrayMismatch();
 	error FeeCollector__BorrowerOperationsOnly(address sender, address expected);
 	error FeeCollector__BorrowerOperationsOrVesselManagerOnly(address sender, address expected1, address expected2);
-	error FeeCollector__InvalidGRVTStakingAddress();
+	error FeeCollector__InvalidPDMStakingAddress();
 	error FeeCollector__VesselManagerOnly(address sender, address expected);
 
 	// Functions --------------------------------------------------------------------------------------------------------
 
-	function increaseDebt(
-		address _borrower,
-		address _asset,
-		uint256 _feeAmount
-	) external;
+	function increaseDebt(address _borrower, address _asset, uint256 _feeAmount) external;
 
-	function decreaseDebt(
-		address _borrower,
-		address _asset,
-		uint256 _paybackFraction
-	) external;
+	function decreaseDebt(address _borrower, address _asset, uint256 _paybackFraction) external;
 
 	function closeDebt(address _borrower, address _asset) external;
 
@@ -53,4 +44,3 @@ interface IFeeCollector {
 
 	function getProtocolRevenueDestination() external view returns (address);
 }
-

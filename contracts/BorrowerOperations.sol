@@ -6,7 +6,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 import "./Interfaces/IVesselManager.sol";
-import "./Dependencies/GravitaBase.sol";
+import "./Dependencies/PalladiumBase.sol";
 import "./Dependencies/SafetyTransfer.sol";
 import "./Interfaces/IBorrowerOperations.sol";
 import "./Interfaces/IDebtToken.sol";
@@ -14,7 +14,7 @@ import "./Interfaces/IFeeCollector.sol";
 import "./Interfaces/ICollSurplusPool.sol";
 import "./Addresses.sol";
 
-contract BorrowerOperations is GravitaBase, ReentrancyGuardUpgradeable, UUPSUpgradeable, IBorrowerOperations {
+contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUpgradeable, IBorrowerOperations {
 	using SafeERC20Upgradeable for IERC20Upgradeable;
 
 	string public constant NAME = "BorrowerOperations";
@@ -93,8 +93,8 @@ contract BorrowerOperations is GravitaBase, ReentrancyGuardUpgradeable, UUPSUpgr
 		vars.compositeDebt = vars.netDebt + gasCompensation;
 		require(vars.compositeDebt != 0, "compositeDebt cannot be 0");
 
-		vars.ICR = GravitaMath._computeCR(_assetAmount, vars.compositeDebt, vars.price);
-		vars.NICR = GravitaMath._computeNominalCR(_assetAmount, vars.compositeDebt);
+		vars.ICR = PalladiumMath._computeCR(_assetAmount, vars.compositeDebt, vars.price);
+		vars.NICR = PalladiumMath._computeNominalCR(_assetAmount, vars.compositeDebt);
 
 		if (isRecoveryMode) {
 			_requireICRisAboveCCR(vars.asset, vars.ICR);
@@ -241,7 +241,7 @@ contract BorrowerOperations is GravitaBase, ReentrancyGuardUpgradeable, UUPSUpgr
 		vars.coll = IVesselManager(vesselManager).getVesselColl(vars.asset, _borrower);
 
 		// Get the vessel's old ICR before the adjustment, and what its new ICR will be after the adjustment
-		vars.oldICR = GravitaMath._computeCR(vars.coll, vars.debt, vars.price);
+		vars.oldICR = PalladiumMath._computeCR(vars.coll, vars.debt, vars.price);
 		vars.newICR = _getNewICRFromVesselChange(
 			vars.coll,
 			vars.debt,
@@ -586,7 +586,7 @@ contract BorrowerOperations is GravitaBase, ReentrancyGuardUpgradeable, UUPSUpgr
 			_isDebtIncrease
 		);
 
-		uint256 newNICR = GravitaMath._computeNominalCR(newColl, newDebt);
+		uint256 newNICR = PalladiumMath._computeNominalCR(newColl, newDebt);
 		return newNICR;
 	}
 
@@ -609,7 +609,7 @@ contract BorrowerOperations is GravitaBase, ReentrancyGuardUpgradeable, UUPSUpgr
 			_isDebtIncrease
 		);
 
-		uint256 newICR = GravitaMath._computeCR(newColl, newDebt, _price);
+		uint256 newICR = PalladiumMath._computeCR(newColl, newDebt, _price);
 		return newICR;
 	}
 
@@ -644,7 +644,7 @@ contract BorrowerOperations is GravitaBase, ReentrancyGuardUpgradeable, UUPSUpgr
 		totalColl = _isCollIncrease ? totalColl + _collChange : totalColl - _collChange;
 		totalDebt = _isDebtIncrease ? totalDebt + _debtChange : totalDebt - _debtChange;
 
-		uint256 newTCR = GravitaMath._computeCR(totalColl, totalDebt, _price);
+		uint256 newTCR = PalladiumMath._computeCR(totalColl, totalDebt, _price);
 		return newTCR;
 	}
 

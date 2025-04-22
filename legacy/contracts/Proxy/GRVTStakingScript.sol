@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.19;
-import "../Interfaces/IGRVTStaking.sol";
+import "../Interfaces/IPDMStaking.sol";
 
-contract GRVTStakingScript {
-	IGRVTStaking immutable grvtStaking;
+contract PDMStakingScript {
+	IPDMStaking immutable pdmStaking;
 
-	constructor(address _GRVTStakingAddress) {
-		grvtStaking = IGRVTStaking(_GRVTStakingAddress);
+	constructor(address _PDMStakingAddress) {
+		pdmStaking = IPDMStaking(_PDMStakingAddress);
 	}
 
-	function stake(uint256 _GRVTamount) external {
-		IGRVTStaking(grvtStaking).stake(_GRVTamount);
+	function stake(uint256 _PDMamount) external {
+		IPDMStaking(pdmStaking).stake(_PDMamount);
 	}
 }

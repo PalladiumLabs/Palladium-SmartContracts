@@ -7,7 +7,7 @@ import "./Dependencies/ERC20Permit.sol";
 import "./Interfaces/IDebtToken.sol";
 
 contract DebtToken is IDebtToken, ERC20Permit, Ownable {
-	string public constant NAME = "GRAI";
+	string public constant NAME = "PUSD";
 
 	// MAINNET-ONLY SECTION START -------------------------------------------------------------------------------------
 
@@ -27,8 +27,13 @@ contract DebtToken is IDebtToken, ERC20Permit, Ownable {
 		address _borrowerOperationsAddress,
 		address _stabilityPoolAddress,
 		address _vesselManagerAddress
-	) public onlyOwner() {
-		require(_borrowerOperationsAddress != address(0) && _stabilityPoolAddress != address(0) && _vesselManagerAddress != address(0), "Invalid address");
+	) public onlyOwner {
+		require(
+			_borrowerOperationsAddress != address(0) &&
+				_stabilityPoolAddress != address(0) &&
+				_vesselManagerAddress != address(0),
+			"Invalid address"
+		);
 		borrowerOperationsAddress = _borrowerOperationsAddress;
 		stabilityPoolAddress = _stabilityPoolAddress;
 		vesselManagerAddress = _vesselManagerAddress;
@@ -36,13 +41,12 @@ contract DebtToken is IDebtToken, ERC20Permit, Ownable {
 
 	// TESTNET-ONLY SECTION END ---------------------------------------------------------------------------------------
 
-	constructor() ERC20("Gravita Debt Token", "GRAI") {}
+	constructor() ERC20("Palladium Debt Token", "PUSD") {}
 
 	mapping(address => bool) public emergencyStopMintingCollateral;
 
 	// stores SC addresses that are allowed to mint/burn the token (AMO strategies, L2 suppliers)
 	mapping(address => bool) public whitelistedContracts;
-
 
 	function emergencyStopMinting(address _asset, bool status) external override onlyOwner {
 		emergencyStopMintingCollateral[_asset] = status;

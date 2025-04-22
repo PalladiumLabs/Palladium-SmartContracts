@@ -8,7 +8,7 @@ for testing the parent's internal functions. */
 
 contract VesselManagerTester is VesselManager {
 	function computeICR(uint256 _coll, uint256 _debt, uint256 _price) external pure returns (uint256) {
-		return GravitaMath._computeCR(_coll, _debt, _price);
+		return PalladiumMath._computeCR(_coll, _debt, _price);
 	}
 
 	function getCollGasCompensation(address _asset, uint256 _coll) external view returns (uint256) {

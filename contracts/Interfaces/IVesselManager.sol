@@ -6,11 +6,11 @@ import "./IActivePool.sol";
 import "./ICollSurplusPool.sol";
 import "./IDebtToken.sol";
 import "./IDefaultPool.sol";
-import "./IGravitaBase.sol";
+import "./IPalladiumBase.sol";
 import "./ISortedVessels.sol";
 import "./IStabilityPool.sol";
 
-interface IVesselManager is IGravitaBase {
+interface IVesselManager is IPalladiumBase {
 	// Enums ------------------------------------------------------------------------------------------------------------
 
 	enum Status {
@@ -68,11 +68,7 @@ interface IVesselManager is IGravitaBase {
 
 	// Functions --------------------------------------------------------------------------------------------------------
 
-	function executeFullRedemption(
-		address _asset,
-		address _borrower,
-		uint256 _newColl
-	) external;
+	function executeFullRedemption(address _asset, address _borrower, uint256 _newColl) external;
 
 	function executePartialRedemption(
 		address _asset,
@@ -90,11 +86,7 @@ interface IVesselManager is IGravitaBase {
 
 	function getNominalICR(address _asset, address _borrower) external view returns (uint256);
 
-	function getCurrentICR(
-		address _asset,
-		address _borrower,
-		uint256 _price
-	) external view returns (uint256);
+	function getCurrentICR(address _asset, address _borrower, uint256 _price) external view returns (uint256);
 
 	function updateStakeAndTotalStakes(address _asset, address _borrower) external returns (uint256);
 
@@ -110,15 +102,10 @@ interface IVesselManager is IGravitaBase {
 
 	function hasPendingRewards(address _asset, address _borrower) external view returns (bool);
 
-	function getEntireDebtAndColl(address _asset, address _borrower)
-		external
-		view
-		returns (
-			uint256 debt,
-			uint256 coll,
-			uint256 pendingDebtTokenReward,
-			uint256 pendingAssetReward
-		);
+	function getEntireDebtAndColl(
+		address _asset,
+		address _borrower
+	) external view returns (uint256 debt, uint256 coll, uint256 pendingDebtTokenReward, uint256 pendingAssetReward);
 
 	function closeVessel(address _asset, address _borrower) external;
 
@@ -144,35 +131,15 @@ interface IVesselManager is IGravitaBase {
 
 	function getVesselColl(address _asset, address _borrower) external view returns (uint256);
 
-	function setVesselStatus(
-		address _asset,
-		address _borrower,
-		uint256 num
-	) external;
+	function setVesselStatus(address _asset, address _borrower, uint256 num) external;
 
-	function increaseVesselColl(
-		address _asset,
-		address _borrower,
-		uint256 _collIncrease
-	) external returns (uint256);
+	function increaseVesselColl(address _asset, address _borrower, uint256 _collIncrease) external returns (uint256);
 
-	function decreaseVesselColl(
-		address _asset,
-		address _borrower,
-		uint256 _collDecrease
-	) external returns (uint256);
+	function decreaseVesselColl(address _asset, address _borrower, uint256 _collDecrease) external returns (uint256);
 
-	function increaseVesselDebt(
-		address _asset,
-		address _borrower,
-		uint256 _debtIncrease
-	) external returns (uint256);
+	function increaseVesselDebt(address _asset, address _borrower, uint256 _debtIncrease) external returns (uint256);
 
-	function decreaseVesselDebt(
-		address _asset,
-		address _borrower,
-		uint256 _collDecrease
-	) external returns (uint256);
+	function decreaseVesselDebt(address _asset, address _borrower, uint256 _collDecrease) external returns (uint256);
 
 	function getTCR(address _asset, uint256 _price) external view returns (uint256);
 

@@ -6,7 +6,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import "../Dependencies/BaseMath.sol";
-import "../Dependencies/GravitaMath.sol";
+import "../Dependencies/PalladiumMath.sol";
 
 import "../Interfaces/ICommunityIssuance.sol";
 import "../Interfaces/IStabilityPool.sol";
@@ -19,12 +19,12 @@ contract CommunityIssuance is ICommunityIssuance, OwnableUpgradeable, BaseMath {
 	uint256 public constant DISTRIBUTION_DURATION = 7 days / 60;
 	uint256 public constant SECONDS_IN_ONE_MINUTE = 60;
 
-	uint256 public totalGRVTIssued;
+	uint256 public totalPDMIssued;
 	uint256 public lastUpdateTime;
-	uint256 public GRVTSupplyCap;
-	uint256 public grvtDistribution;
+	uint256 public PDMSupplyCap;
+	uint256 public pdmDistribution;
 
-	IERC20Upgradeable public grvtToken;
+	IERC20Upgradeable public pdmToken;
 	IStabilityPool public stabilityPool;
 
 	address public adminContract;
@@ -53,13 +53,13 @@ contract CommunityIssuance is ICommunityIssuance, OwnableUpgradeable, BaseMath {
 
 	// --- Functions ---
 	function setAddresses(
-		address _grvtTokenAddress,
+		address _pdmTokenAddress,
 		address _stabilityPoolAddress,
 		address _adminContract
 	) external onlyOwner {
 		require(!isSetupInitialized, "Setup is already initialized");
 		adminContract = _adminContract;
-		grvtToken = IERC20Upgradeable(_grvtTokenAddress);
+		pdmToken = IERC20Upgradeable(_pdmTokenAddress);
 		stabilityPool = IStabilityPool(_stabilityPoolAddress);
 		isSetupInitialized = true;
 	}
@@ -74,12 +74,12 @@ contract CommunityIssuance is ICommunityIssuance, OwnableUpgradeable, BaseMath {
 	}
 
 	function removeFundFromStabilityPool(uint256 _fundToRemove) external onlyOwner {
-		uint256 newCap = GRVTSupplyCap - _fundToRemove;
-		require(totalGRVTIssued <= newCap, "CommunityIssuance: Stability Pool doesn't have enough supply.");
+		uint256 newCap = PDMSupplyCap - _fundToRemove;
+		require(totalPDMIssued <= newCap, "CommunityIssuance: Stability Pool doesn't have enough supply.");
 
-		GRVTSupplyCap -= _fundToRemove;
+		PDMSupplyCap -= _fundToRemove;
 
-		grvtToken.safeTransfer(msg.sender, _fundToRemove);
+		pdmToken.safeTransfer(msg.sender, _fundToRemove);
 	}
 
 	function addFundToStabilityPoolFrom(uint256 _assignedSupply, address _spender) external override isController {
@@ -91,26 +91,26 @@ contract CommunityIssuance is ICommunityIssuance, OwnableUpgradeable, BaseMath {
 			lastUpdateTime = block.timestamp;
 		}
 
-		GRVTSupplyCap += _assignedSupply;
-		grvtToken.safeTransferFrom(_spender, address(this), _assignedSupply);
+		PDMSupplyCap += _assignedSupply;
+		pdmToken.safeTransferFrom(_spender, address(this), _assignedSupply);
 	}
 
-	function issueGRVT() public override onlyStabilityPool returns (uint256) {
-		uint256 maxPoolSupply = GRVTSupplyCap;
+	function issuePDM() public override onlyStabilityPool returns (uint256) {
+		uint256 maxPoolSupply = PDMSupplyCap;
 
-		if (totalGRVTIssued >= maxPoolSupply) return 0;
+		if (totalPDMIssued >= maxPoolSupply) return 0;
 
 		uint256 issuance = _getLastUpdateTokenDistribution();
-		uint256 totalIssuance = issuance + totalGRVTIssued;
+		uint256 totalIssuance = issuance + totalPDMIssued;
 
 		if (totalIssuance > maxPoolSupply) {
-			issuance = maxPoolSupply - totalGRVTIssued;
+			issuance = maxPoolSupply - totalPDMIssued;
 			totalIssuance = maxPoolSupply;
 		}
 
 		lastUpdateTime = block.timestamp;
-		totalGRVTIssued = totalIssuance;
-		emit TotalGRVTIssuedUpdated(totalIssuance);
+		totalPDMIssued = totalIssuance;
+		emit TotalPDMIssuedUpdated(totalIssuance);
 
 		return issuance;
 	}
@@ -118,23 +118,23 @@ contract CommunityIssuance is ICommunityIssuance, OwnableUpgradeable, BaseMath {
 	function _getLastUpdateTokenDistribution() internal view returns (uint256) {
 		require(lastUpdateTime != 0, "Stability pool hasn't been assigned");
 		uint256 timePassed = (block.timestamp - lastUpdateTime) / SECONDS_IN_ONE_MINUTE;
-		uint256 totalDistribuedSinceBeginning = grvtDistribution * timePassed;
+		uint256 totalDistribuedSinceBeginning = pdmDistribution * timePassed;
 
 		return totalDistribuedSinceBeginning;
 	}
 
-	function sendGRVT(address _account, uint256 _GRVTamount) external override onlyStabilityPool {
-		uint256 balanceGRVT = grvtToken.balanceOf(address(this));
-		uint256 safeAmount = balanceGRVT >= _GRVTamount ? _GRVTamount : balanceGRVT;
+	function sendPDM(address _account, uint256 _PDMamount) external override onlyStabilityPool {
+		uint256 balancePDM = pdmToken.balanceOf(address(this));
+		uint256 safeAmount = balancePDM >= _PDMamount ? _PDMamount : balancePDM;
 
 		if (safeAmount == 0) {
 			return;
 		}
 
-		IERC20Upgradeable(address(grvtToken)).safeTransfer(_account, safeAmount);
+		IERC20Upgradeable(address(pdmToken)).safeTransfer(_account, safeAmount);
 	}
 
-	function setWeeklyGrvtDistribution(uint256 _weeklyReward) external isController {
-		grvtDistribution = _weeklyReward / DISTRIBUTION_DURATION;
+	function setWeeklyPdmDistribution(uint256 _weeklyReward) external isController {
+		pdmDistribution = _weeklyReward / DISTRIBUTION_DURATION;
 	}
 }

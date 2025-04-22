@@ -5,8 +5,7 @@ pragma solidity ^0.8.19;
 import "../FeeCollector.sol";
 
 contract FeeCollectorTester is FeeCollector {
-
-	bool public __routeToGRVTStaking;
+	bool public __routeToPDMStaking;
 
 	function calcNewDuration(
 		uint256 remainingAmount,
@@ -16,11 +15,11 @@ contract FeeCollectorTester is FeeCollector {
 		return _calcNewDuration(remainingAmount, remainingTimeToLive, addedAmount);
 	}
 
-	function setRouteToGRVTStaking(bool ___routeToGRVTStaking) external onlyOwner {
-		__routeToGRVTStaking = ___routeToGRVTStaking;
+	function setRouteToPDMStaking(bool ___routeToPDMStaking) external onlyOwner {
+		__routeToPDMStaking = ___routeToPDMStaking;
 	}
 
-	function _routeToGRVTStaking() internal view override returns (bool) {
-		return __routeToGRVTStaking;
+	function _routeToPDMStaking() internal view override returns (bool) {
+		return __routeToPDMStaking;
 	}
 }

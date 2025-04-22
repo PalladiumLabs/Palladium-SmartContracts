@@ -6,10 +6,10 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import "./BaseMath.sol";
-import "./GravitaMath.sol";
+import "./PalladiumMath.sol";
 import "../Interfaces/IActivePool.sol";
 import "../Interfaces/IDefaultPool.sol";
-import "../Interfaces/IGravitaBase.sol";
+import "../Interfaces/IPalladiumBase.sol";
 import "../Interfaces/IAdminContract.sol";
 import "../Interfaces/IDefaultPool.sol";
 import "../Addresses.sol";
@@ -18,7 +18,7 @@ import "../Addresses.sol";
  * Base contract for VesselManager, BorrowerOperations and StabilityPool. Contains global system constants and
  * common functions.
  */
-abstract contract GravitaBase is IGravitaBase, BaseMath, OwnableUpgradeable, Addresses {
+abstract contract PalladiumBase is IPalladiumBase, BaseMath, OwnableUpgradeable, Addresses {
 	// --- Gas compensation functions ---
 
 	// Returns the composite debt (drawn debt + gas compensation) of a vessel, for the purpose of ICR calculation
@@ -50,7 +50,7 @@ abstract contract GravitaBase is IGravitaBase, BaseMath, OwnableUpgradeable, Add
 	function _getTCR(address _asset, uint256 _price) internal view returns (uint256 TCR) {
 		uint256 entireSystemColl = getEntireSystemColl(_asset);
 		uint256 entireSystemDebt = getEntireSystemDebt(_asset);
-		TCR = GravitaMath._computeCR(entireSystemColl, entireSystemDebt, _price);
+		TCR = PalladiumMath._computeCR(entireSystemColl, entireSystemDebt, _price);
 	}
 
 	function _checkRecoveryMode(address _asset, uint256 _price) internal view returns (bool) {

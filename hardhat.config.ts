@@ -113,11 +113,11 @@ module.exports = {
 		optimism: {
 			url: `https://optimism-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
 			accounts: [`${process.env.DEPLOYER_PRIVATEKEY}`],
-    },
+		},
 		"optimism-sepolia": {
 			url: `https://sepolia.optimism.io`,
 			accounts: [`${process.env.DEPLOYER_PRIVATEKEY}`],
-    },
+		},
 		polygonZkEvm: {
 			url: `https://polygon-zkevm.drpc.org`,
 			accounts: [`${process.env.DEPLOYER_PRIVATEKEY}`],
@@ -174,14 +174,14 @@ module.exports = {
 					browserURL: "https://explorer.mantle.xyz/",
 				},
 			},
-      {
+			{
 				network: "optimism-sepolia",
 				chainId: 11155420,
 				urls: {
 					apiURL: "https://sepolia-optimism.etherscan.io/api",
 					browserURL: "https://sepolia-optimism.etherscan.io",
-        },
-      },
+				},
+			},
 			{
 				network: "polygonZkEvm",
 				chainId: 1_101,
@@ -203,3 +203,4 @@ module.exports = {
 		coinmarketcap: `${process.env.COINMARKETCAP_KEY}`,
 	},
 }
+

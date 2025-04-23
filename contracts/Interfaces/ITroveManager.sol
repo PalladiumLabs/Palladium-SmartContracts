@@ -7,10 +7,10 @@ import "./ICollSurplusPool.sol";
 import "./IDebtToken.sol";
 import "./IDefaultPool.sol";
 import "./IPalladiumBase.sol";
-import "./ISortedVessels.sol";
+import "./ISortedTroves.sol";
 import "./IStabilityPool.sol";
 
-interface IVesselManager is IPalladiumBase {
+interface ITroveManager is IPalladiumBase {
 	// Enums ------------------------------------------------------------------------------------------------------------
 
 	enum Status {
@@ -21,7 +21,7 @@ interface IVesselManager is IPalladiumBase {
 		closedByRedemption
 	}
 
-	enum VesselManagerOperation {
+	enum TroveManagerOperation {
 		applyPendingRewards,
 		liquidateInNormalMode,
 		liquidateInRecoveryMode,
@@ -35,30 +35,30 @@ interface IVesselManager is IPalladiumBase {
 	event TotalStakesUpdated(address indexed _asset, uint256 _newTotalStakes);
 	event SystemSnapshotsUpdated(address indexed _asset, uint256 _totalStakesSnapshot, uint256 _totalCollateralSnapshot);
 	event LTermsUpdated(address indexed _asset, uint256 _L_Coll, uint256 _L_Debt);
-	event VesselSnapshotsUpdated(address indexed _asset, uint256 _L_Coll, uint256 _L_Debt);
-	event VesselIndexUpdated(address indexed _asset, address _borrower, uint256 _newIndex);
+	event TroveSnapshotsUpdated(address indexed _asset, uint256 _L_Coll, uint256 _L_Debt);
+	event TroveIndexUpdated(address indexed _asset, address _borrower, uint256 _newIndex);
 
-	event VesselUpdated(
+	event TroveUpdated(
 		address indexed _asset,
 		address indexed _borrower,
 		uint256 _debt,
 		uint256 _coll,
 		uint256 _stake,
-		VesselManagerOperation _operation
+		TroveManagerOperation _operation
 	);
 
 	// Custom Errors ----------------------------------------------------------------------------------------------------
 
-	error VesselManager__FeeBiggerThanAssetDraw();
-	error VesselManager__OnlyOneVessel();
+	error TroveManager__FeeBiggerThanAssetDraw();
+	error TroveManager__OnlyOneTrove();
 
-	error VesselManager__OnlyVesselManagerOperations();
-	error VesselManager__OnlyBorrowerOperations();
-	error VesselManager__OnlyVesselManagerOperationsOrBorrowerOperations();
+	error TroveManager__OnlyTroveManagerOperations();
+	error TroveManager__OnlyBorrowerOperations();
+	error TroveManager__OnlyTroveManagerOperationsOrBorrowerOperations();
 
 	// Structs ----------------------------------------------------------------------------------------------------------
 
-	struct Vessel {
+	struct Trove {
 		uint256 debt;
 		uint256 coll;
 		uint256 stake;
@@ -80,9 +80,9 @@ interface IVesselManager is IPalladiumBase {
 		address _lowerPartialRedemptionHint
 	) external;
 
-	function getVesselOwnersCount(address _asset) external view returns (uint256);
+	function getTroveOwnersCount(address _asset) external view returns (uint256);
 
-	function getVesselFromVesselOwnersArray(address _asset, uint256 _index) external view returns (address);
+	function getTroveFromTroveOwnersArray(address _asset, uint256 _index) external view returns (address);
 
 	function getNominalICR(address _asset, address _borrower) external view returns (uint256);
 
@@ -90,9 +90,9 @@ interface IVesselManager is IPalladiumBase {
 
 	function updateStakeAndTotalStakes(address _asset, address _borrower) external returns (uint256);
 
-	function updateVesselRewardSnapshots(address _asset, address _borrower) external;
+	function updateTroveRewardSnapshots(address _asset, address _borrower) external;
 
-	function addVesselOwnerToArray(address _asset, address _borrower) external returns (uint256 index);
+	function addTroveOwnerToArray(address _asset, address _borrower) external returns (uint256 index);
 
 	function applyPendingRewards(address _asset, address _borrower) external;
 
@@ -107,9 +107,9 @@ interface IVesselManager is IPalladiumBase {
 		address _borrower
 	) external view returns (uint256 debt, uint256 coll, uint256 pendingDebtTokenReward, uint256 pendingAssetReward);
 
-	function closeVessel(address _asset, address _borrower) external;
+	function closeTrove(address _asset, address _borrower) external;
 
-	function closeVesselLiquidation(address _asset, address _borrower) external;
+	function closeTroveLiquidation(address _asset, address _borrower) external;
 
 	function removeStake(address _asset, address _borrower) external;
 
@@ -123,23 +123,23 @@ interface IVesselManager is IPalladiumBase {
 
 	function getBorrowingFee(address _asset, uint256 _debtTokenAmount) external view returns (uint256);
 
-	function getVesselStatus(address _asset, address _borrower) external view returns (uint256);
+	function getTroveStatus(address _asset, address _borrower) external view returns (uint256);
 
-	function getVesselStake(address _asset, address _borrower) external view returns (uint256);
+	function getTroveStake(address _asset, address _borrower) external view returns (uint256);
 
-	function getVesselDebt(address _asset, address _borrower) external view returns (uint256);
+	function getTroveDebt(address _asset, address _borrower) external view returns (uint256);
 
-	function getVesselColl(address _asset, address _borrower) external view returns (uint256);
+	function getTroveColl(address _asset, address _borrower) external view returns (uint256);
 
-	function setVesselStatus(address _asset, address _borrower, uint256 num) external;
+	function setTroveStatus(address _asset, address _borrower, uint256 num) external;
 
-	function increaseVesselColl(address _asset, address _borrower, uint256 _collIncrease) external returns (uint256);
+	function increaseTroveColl(address _asset, address _borrower, uint256 _collIncrease) external returns (uint256);
 
-	function decreaseVesselColl(address _asset, address _borrower, uint256 _collDecrease) external returns (uint256);
+	function decreaseTroveColl(address _asset, address _borrower, uint256 _collDecrease) external returns (uint256);
 
-	function increaseVesselDebt(address _asset, address _borrower, uint256 _debtIncrease) external returns (uint256);
+	function increaseTroveDebt(address _asset, address _borrower, uint256 _debtIncrease) external returns (uint256);
 
-	function decreaseVesselDebt(address _asset, address _borrower, uint256 _collDecrease) external returns (uint256);
+	function decreaseTroveDebt(address _asset, address _borrower, uint256 _collDecrease) external returns (uint256);
 
 	function getTCR(address _asset, uint256 _price) external view returns (uint256);
 
@@ -178,13 +178,9 @@ interface IVesselManager is IPalladiumBase {
 
 	function updateSystemSnapshots_excludeCollRemainder(address _asset, uint256 _collRemainder) external;
 
-	function movePendingVesselRewardsToActivePool(
-		address _asset,
-		uint256 _debtTokenAmount,
-		uint256 _assetAmount
-	) external;
+	function movePendingTroveRewardsToActivePool(address _asset, uint256 _debtTokenAmount, uint256 _assetAmount) external;
 
-	function isVesselActive(address _asset, address _borrower) external view returns (bool);
+	function isTroveActive(address _asset, address _borrower) external view returns (bool);
 
 	function sendGasCompensation(
 		address _asset,

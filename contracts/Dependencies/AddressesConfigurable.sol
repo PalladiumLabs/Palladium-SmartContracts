@@ -16,12 +16,12 @@ abstract contract AddressesConfigurable is OwnableUpgradeable {
 	address public gasPoolAddress;
 	address public pdmStaking;
 	address public priceFeed;
-	address public sortedVessels;
+	address public sortedTroves;
 	address public stabilityPool;
 	address public timelockAddress;
 	address public treasuryAddress;
-	address public vesselManager;
-	address public vesselManagerOperations;
+	address public troveManager;
+	address public troveManagerOperations;
 
 	bool public isAddressSetupInitialized;
 
@@ -49,12 +49,12 @@ abstract contract AddressesConfigurable is OwnableUpgradeable {
 		feeCollector = _addresses[6];
 		gasPoolAddress = _addresses[7];
 		priceFeed = _addresses[8];
-		sortedVessels = _addresses[9];
+		sortedTroves = _addresses[9];
 		stabilityPool = _addresses[10];
 		timelockAddress = _addresses[11];
 		treasuryAddress = _addresses[12];
-		vesselManager = _addresses[13];
-		vesselManagerOperations = _addresses[14];
+		troveManager = _addresses[13];
+		troveManagerOperations = _addresses[14];
 
 		isAddressSetupInitialized = true;
 	}

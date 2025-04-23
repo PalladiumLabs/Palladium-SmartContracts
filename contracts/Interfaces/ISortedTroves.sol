@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.19;
 
-interface ISortedVessels {
+interface ISortedTroves {
 	// --- Events ---
 
 	event NodeAdded(address indexed _asset, address _id, uint256 _NICR);
@@ -10,23 +10,11 @@ interface ISortedVessels {
 
 	// --- Functions ---
 
-	function insert(
-		address _asset,
-		address _id,
-		uint256 _ICR,
-		address _prevId,
-		address _nextId
-	) external;
+	function insert(address _asset, address _id, uint256 _ICR, address _prevId, address _nextId) external;
 
 	function remove(address _asset, address _id) external;
 
-	function reInsert(
-		address _asset,
-		address _id,
-		uint256 _newICR,
-		address _prevId,
-		address _nextId
-	) external;
+	function reInsert(address _asset, address _id, uint256 _newICR, address _prevId, address _nextId) external;
 
 	function contains(address _asset, address _id) external view returns (bool);
 

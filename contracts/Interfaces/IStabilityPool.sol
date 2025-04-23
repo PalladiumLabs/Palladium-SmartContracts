@@ -39,7 +39,7 @@ interface IStabilityPool is IDeposit {
 
 	error StabilityPool__ActivePoolOnly(address sender, address expected);
 	error StabilityPool__AdminContractOnly(address sender, address expected);
-	error StabilityPool__VesselManagerOnly(address sender, address expected);
+	error StabilityPool__TroveManagerOnly(address sender, address expected);
 	error StabilityPool__ArrayNotInAscendingOrder();
 
 	// --- Functions ---
@@ -57,7 +57,7 @@ interface IStabilityPool is IDeposit {
 
 	/*
 	 * Initial checks:
-	 * - _amount is zero or there are no under collateralized vessels left in the system
+	 * - _amount is zero or there are no under collateralized troves left in the system
 	 * - User has a non zero deposit
 	 * ---
 	 * - Triggers a PDM issuance, based on time passed since the last issuance. The PDM issuance is shared between *all* depositors.
@@ -70,16 +70,16 @@ interface IStabilityPool is IDeposit {
 
 	/*
 	Initial checks:
-	 * - Caller is VesselManager
+	 * - Caller is TroveManager
 	 * ---
 	 * Cancels out the specified debt against the debt token contained in the Stability Pool (as far as possible)
-	 * and transfers the Vessel's collateral from ActivePool to StabilityPool.
-	 * Only called by liquidation functions in the VesselManager.
+	 * and transfers the Trove's collateral from ActivePool to StabilityPool.
+	 * Only called by liquidation functions in the TroveManager.
 	 */
 	function offset(uint256 _debt, address _asset, uint256 _coll) external;
 
 	/*
-	 * Returns debt tokens held in the pool. Changes when users deposit/withdraw, and when Vessel debt is offset.
+	 * Returns debt tokens held in the pool. Changes when users deposit/withdraw, and when Trove debt is offset.
 	 */
 	function getTotalDebtTokenDeposits() external view returns (uint256);
 

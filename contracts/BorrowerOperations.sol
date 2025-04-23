@@ -5,7 +5,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-import "./Interfaces/IVesselManager.sol";
+import "./Interfaces/ITroveManager.sol";
 import "./Dependencies/PalladiumBase.sol";
 import "./Dependencies/SafetyTransfer.sol";
 import "./Interfaces/IBorrowerOperations.sol";
@@ -26,7 +26,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
     Used to hold, return and assign variables inside a function, in order to avoid the error:
     "CompilerError: Stack too deep". */
 
-	struct LocalVariables_adjustVessel {
+	struct LocalVariables_adjustTrove {
 		address asset;
 		bool isCollIncrease;
 		uint256 price;
@@ -43,7 +43,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		uint256 stake;
 	}
 
-	struct LocalVariables_openVessel {
+	struct LocalVariables_openTrove {
 		address asset;
 		uint256 price;
 		uint256 debtTokenFee;
@@ -62,9 +62,9 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		__UUPSUpgradeable_init();
 	}
 
-	// --- Borrower Vessel Operations ---
+	// --- Borrower Trove Operations ---
 
-	function openVessel(
+	function openTrove(
 		address _asset,
 		uint256 _assetAmount,
 		uint256 _debtTokenAmount,
@@ -72,13 +72,13 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		address _lowerHint
 	) external override {
 		require(IAdminContract(adminContract).getIsActive(_asset), "BorrowerOps: Asset is not active");
-		LocalVariables_openVessel memory vars;
+		LocalVariables_openTrove memory vars;
 		vars.asset = _asset;
 
 		vars.price = IPriceFeed(priceFeed).fetchPrice(vars.asset);
 		bool isRecoveryMode = _checkRecoveryMode(vars.asset, vars.price);
 
-		_requireVesselIsNotActive(vars.asset, msg.sender);
+		_requireTroveIsNotActive(vars.asset, msg.sender);
 
 		vars.netDebt = _debtTokenAmount;
 
@@ -100,21 +100,21 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 			_requireICRisAboveCCR(vars.asset, vars.ICR);
 		} else {
 			_requireICRisAboveMCR(vars.asset, vars.ICR);
-			uint256 newTCR = _getNewTCRFromVesselChange(vars.asset, _assetAmount, true, vars.compositeDebt, true, vars.price); // bools: coll increase, debt increase
+			uint256 newTCR = _getNewTCRFromTroveChange(vars.asset, _assetAmount, true, vars.compositeDebt, true, vars.price); // bools: coll increase, debt increase
 			_requireNewTCRisAboveCCR(vars.asset, newTCR);
 		}
 
-		// Set the vessel struct's properties
-		IVesselManager(vesselManager).setVesselStatus(vars.asset, msg.sender, 1); // Vessel Status 1 = Active
-		IVesselManager(vesselManager).increaseVesselColl(vars.asset, msg.sender, _assetAmount);
-		IVesselManager(vesselManager).increaseVesselDebt(vars.asset, msg.sender, vars.compositeDebt);
+		// Set the trove struct's properties
+		ITroveManager(troveManager).setTroveStatus(vars.asset, msg.sender, 1); // Trove Status 1 = Active
+		ITroveManager(troveManager).increaseTroveColl(vars.asset, msg.sender, _assetAmount);
+		ITroveManager(troveManager).increaseTroveDebt(vars.asset, msg.sender, vars.compositeDebt);
 
-		IVesselManager(vesselManager).updateVesselRewardSnapshots(vars.asset, msg.sender);
-		vars.stake = IVesselManager(vesselManager).updateStakeAndTotalStakes(vars.asset, msg.sender);
+		ITroveManager(troveManager).updateTroveRewardSnapshots(vars.asset, msg.sender);
+		vars.stake = ITroveManager(troveManager).updateStakeAndTotalStakes(vars.asset, msg.sender);
 
-		ISortedVessels(sortedVessels).insert(vars.asset, msg.sender, vars.NICR, _upperHint, _lowerHint);
-		vars.arrayIndex = IVesselManager(vesselManager).addVesselOwnerToArray(vars.asset, msg.sender);
-		emit VesselCreated(vars.asset, msg.sender, vars.arrayIndex);
+		ISortedTroves(sortedTroves).insert(vars.asset, msg.sender, vars.NICR, _upperHint, _lowerHint);
+		vars.arrayIndex = ITroveManager(troveManager).addTroveOwnerToArray(vars.asset, msg.sender);
+		emit TroveCreated(vars.asset, msg.sender, vars.arrayIndex);
 
 		// Move the asset to the Active Pool, and mint the debtToken amount to the borrower
 		_activePoolAddColl(vars.asset, _assetAmount);
@@ -124,58 +124,58 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 			_withdrawDebtTokens(vars.asset, gasPoolAddress, gasCompensation, gasCompensation);
 		}
 
-		emit VesselUpdated(
+		emit TroveUpdated(
 			vars.asset,
 			msg.sender,
 			vars.compositeDebt,
 			_assetAmount,
 			vars.stake,
-			BorrowerOperation.openVessel
+			BorrowerOperation.openTrove
 		);
 		emit BorrowingFeePaid(vars.asset, msg.sender, vars.debtTokenFee);
 	}
 
-	// Send collateral to a vessel
+	// Send collateral to a trove
 	function addColl(
 		address _asset,
 		uint256 _assetSent,
 		address _upperHint,
 		address _lowerHint
 	) external override nonReentrant {
-		_adjustVessel(_asset, _assetSent, msg.sender, 0, 0, false, _upperHint, _lowerHint);
+		_adjustTrove(_asset, _assetSent, msg.sender, 0, 0, false, _upperHint, _lowerHint);
 	}
 
-	// Withdraw collateral from a vessel
+	// Withdraw collateral from a trove
 	function withdrawColl(
 		address _asset,
 		uint256 _collWithdrawal,
 		address _upperHint,
 		address _lowerHint
 	) external override nonReentrant {
-		_adjustVessel(_asset, 0, msg.sender, _collWithdrawal, 0, false, _upperHint, _lowerHint);
+		_adjustTrove(_asset, 0, msg.sender, _collWithdrawal, 0, false, _upperHint, _lowerHint);
 	}
 
-	// Withdraw debt tokens from a vessel: mint new debt tokens to the owner, and increase the vessel's debt accordingly
+	// Withdraw debt tokens from a trove: mint new debt tokens to the owner, and increase the trove's debt accordingly
 	function withdrawDebtTokens(
 		address _asset,
 		uint256 _debtTokenAmount,
 		address _upperHint,
 		address _lowerHint
 	) external override nonReentrant {
-		_adjustVessel(_asset, 0, msg.sender, 0, _debtTokenAmount, true, _upperHint, _lowerHint);
+		_adjustTrove(_asset, 0, msg.sender, 0, _debtTokenAmount, true, _upperHint, _lowerHint);
 	}
 
-	// Repay debt tokens to a Vessel: Burn the repaid debt tokens, and reduce the vessel's debt accordingly
+	// Repay debt tokens to a Trove: Burn the repaid debt tokens, and reduce the trove's debt accordingly
 	function repayDebtTokens(
 		address _asset,
 		uint256 _debtTokenAmount,
 		address _upperHint,
 		address _lowerHint
 	) external override nonReentrant {
-		_adjustVessel(_asset, 0, msg.sender, 0, _debtTokenAmount, false, _upperHint, _lowerHint);
+		_adjustTrove(_asset, 0, msg.sender, 0, _debtTokenAmount, false, _upperHint, _lowerHint);
 	}
 
-	function adjustVessel(
+	function adjustTrove(
 		address _asset,
 		uint256 _assetSent,
 		uint256 _collWithdrawal,
@@ -184,7 +184,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		address _upperHint,
 		address _lowerHint
 	) external override nonReentrant {
-		_adjustVessel(
+		_adjustTrove(
 			_asset,
 			_assetSent,
 			msg.sender,
@@ -197,9 +197,9 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 	}
 
 	/*
-	 * _adjustVessel(): Alongside a debt change, this function can perform either a collateral top-up or a collateral withdrawal.
+	 * _adjustTrove(): Alongside a debt change, this function can perform either a collateral top-up or a collateral withdrawal.
 	 */
-	function _adjustVessel(
+	function _adjustTrove(
 		address _asset,
 		uint256 _assetSent,
 		address _borrower,
@@ -209,7 +209,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		address _upperHint,
 		address _lowerHint
 	) internal {
-		LocalVariables_adjustVessel memory vars;
+		LocalVariables_adjustTrove memory vars;
 		vars.asset = _asset;
 		vars.price = IPriceFeed(priceFeed).fetchPrice(vars.asset);
 		bool isRecoveryMode = _checkRecoveryMode(vars.asset, vars.price);
@@ -219,12 +219,12 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		}
 		_requireSingularCollChange(_collWithdrawal, _assetSent);
 		_requireNonZeroAdjustment(_collWithdrawal, _debtTokenChange, _assetSent);
-		_requireVesselIsActive(vars.asset, _borrower);
+		_requireTroveIsActive(vars.asset, _borrower);
 
-		// Confirm the operation is either a borrower adjusting their own vessel, or a pure asset transfer from the Stability Pool to a vessel
+		// Confirm the operation is either a borrower adjusting their own trove, or a pure asset transfer from the Stability Pool to a trove
 		assert(msg.sender == _borrower || (stabilityPool == msg.sender && _assetSent != 0 && _debtTokenChange == 0));
 
-		IVesselManager(vesselManager).applyPendingRewards(vars.asset, _borrower);
+		ITroveManager(troveManager).applyPendingRewards(vars.asset, _borrower);
 
 		// Get the collChange based on whether or not asset was sent in the transaction
 		(vars.collChange, vars.isCollIncrease) = _getCollChange(_assetSent, _collWithdrawal);
@@ -237,12 +237,12 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 			vars.netDebtChange = vars.netDebtChange + vars.debtTokenFee; // The raw debt change includes the fee
 		}
 
-		vars.debt = IVesselManager(vesselManager).getVesselDebt(vars.asset, _borrower);
-		vars.coll = IVesselManager(vesselManager).getVesselColl(vars.asset, _borrower);
+		vars.debt = ITroveManager(troveManager).getTroveDebt(vars.asset, _borrower);
+		vars.coll = ITroveManager(troveManager).getTroveColl(vars.asset, _borrower);
 
-		// Get the vessel's old ICR before the adjustment, and what its new ICR will be after the adjustment
+		// Get the trove's old ICR before the adjustment, and what its new ICR will be after the adjustment
 		vars.oldICR = PalladiumMath._computeCR(vars.coll, vars.debt, vars.price);
-		vars.newICR = _getNewICRFromVesselChange(
+		vars.newICR = _getNewICRFromTroveChange(
 			vars.coll,
 			vars.debt,
 			vars.collChange,
@@ -263,7 +263,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 			_requireSufficientDebtTokenBalance(_borrower, vars.netDebtChange);
 		}
 
-		(vars.newColl, vars.newDebt) = _updateVesselFromAdjustment(
+		(vars.newColl, vars.newDebt) = _updateTroveFromAdjustment(
 			vars.asset,
 			_borrower,
 			vars.collChange,
@@ -271,10 +271,10 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 			vars.netDebtChange,
 			_isDebtIncrease
 		);
-		vars.stake = IVesselManager(vesselManager).updateStakeAndTotalStakes(vars.asset, _borrower);
+		vars.stake = ITroveManager(troveManager).updateStakeAndTotalStakes(vars.asset, _borrower);
 
-		// Re-insert vessel in to the sorted list
-		uint256 newNICR = _getNewNominalICRFromVesselChange(
+		// Re-insert trove in to the sorted list
+		uint256 newNICR = _getNewNominalICRFromTroveChange(
 			vars.coll,
 			vars.debt,
 			vars.collChange,
@@ -282,9 +282,9 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 			vars.netDebtChange,
 			_isDebtIncrease
 		);
-		ISortedVessels(sortedVessels).reInsert(vars.asset, _borrower, newNICR, _upperHint, _lowerHint);
+		ISortedTroves(sortedTroves).reInsert(vars.asset, _borrower, newNICR, _upperHint, _lowerHint);
 
-		emit VesselUpdated(vars.asset, _borrower, vars.newDebt, vars.newColl, vars.stake, BorrowerOperation.adjustVessel);
+		emit TroveUpdated(vars.asset, _borrower, vars.newDebt, vars.newColl, vars.stake, BorrowerOperation.adjustTrove);
 		emit BorrowingFeePaid(vars.asset, msg.sender, vars.debtTokenFee);
 
 		// Use the unmodified _debtTokenChange here, as we don't send the fee to the user
@@ -299,15 +299,15 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		);
 	}
 
-	function closeVessel(address _asset) external override {
-		_requireVesselIsActive(_asset, msg.sender);
+	function closeTrove(address _asset) external override {
+		_requireTroveIsActive(_asset, msg.sender);
 		uint256 price = IPriceFeed(priceFeed).fetchPrice(_asset);
 		_requireNotInRecoveryMode(_asset, price);
 
-		IVesselManager(vesselManager).applyPendingRewards(_asset, msg.sender);
+		ITroveManager(troveManager).applyPendingRewards(_asset, msg.sender);
 
-		uint256 coll = IVesselManager(vesselManager).getVesselColl(_asset, msg.sender);
-		uint256 debt = IVesselManager(vesselManager).getVesselDebt(_asset, msg.sender);
+		uint256 coll = ITroveManager(troveManager).getTroveColl(_asset, msg.sender);
+		uint256 debt = ITroveManager(troveManager).getTroveDebt(_asset, msg.sender);
 
 		uint256 gasCompensation = IAdminContract(adminContract).getDebtTokenGasCompensation(_asset);
 		uint256 refund = IFeeCollector(feeCollector).simulateRefund(msg.sender, _asset, 1 ether);
@@ -315,13 +315,13 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 
 		_requireSufficientDebtTokenBalance(msg.sender, netDebt);
 
-		uint256 newTCR = _getNewTCRFromVesselChange(_asset, coll, false, debt, false, price);
+		uint256 newTCR = _getNewTCRFromTroveChange(_asset, coll, false, debt, false, price);
 		_requireNewTCRisAboveCCR(_asset, newTCR);
 
-		IVesselManager(vesselManager).removeStake(_asset, msg.sender);
-		IVesselManager(vesselManager).closeVessel(_asset, msg.sender);
+		ITroveManager(troveManager).removeStake(_asset, msg.sender);
+		ITroveManager(troveManager).closeTrove(_asset, msg.sender);
 
-		emit VesselUpdated(_asset, msg.sender, 0, 0, 0, BorrowerOperation.closeVessel);
+		emit TroveUpdated(_asset, msg.sender, 0, 0, 0, BorrowerOperation.closeTrove);
 
 		// Burn the repaid debt tokens from the user's balance and the gas compensation from the Gas Pool
 		_repayDebtTokens(_asset, msg.sender, netDebt, refund);
@@ -345,7 +345,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 	}
 
 	function _triggerBorrowingFee(address _asset, uint256 _debtTokenAmount) internal returns (uint256) {
-		uint256 debtTokenFee = IVesselManager(vesselManager).getBorrowingFee(_asset, _debtTokenAmount);
+		uint256 debtTokenFee = ITroveManager(troveManager).getBorrowingFee(_asset, _debtTokenAmount);
 		IDebtToken(debtToken).mint(_asset, feeCollector, debtTokenFee);
 		IFeeCollector(feeCollector).increaseDebt(msg.sender, _asset, debtTokenFee);
 		return debtTokenFee;
@@ -367,8 +367,8 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		}
 	}
 
-	// Update vessel's coll and debt based on whether they increase or decrease
-	function _updateVesselFromAdjustment(
+	// Update trove's coll and debt based on whether they increase or decrease
+	function _updateTroveFromAdjustment(
 		address _asset,
 		address _borrower,
 		uint256 _collChange,
@@ -377,11 +377,11 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		bool _isDebtIncrease
 	) internal returns (uint256, uint256) {
 		uint256 newColl = (_isCollIncrease)
-			? IVesselManager(vesselManager).increaseVesselColl(_asset, _borrower, _collChange)
-			: IVesselManager(vesselManager).decreaseVesselColl(_asset, _borrower, _collChange);
+			? ITroveManager(troveManager).increaseTroveColl(_asset, _borrower, _collChange)
+			: ITroveManager(troveManager).decreaseTroveColl(_asset, _borrower, _collChange);
 		uint256 newDebt = (_isDebtIncrease)
-			? IVesselManager(vesselManager).increaseVesselDebt(_asset, _borrower, _debtChange)
-			: IVesselManager(vesselManager).decreaseVesselDebt(_asset, _borrower, _debtChange);
+			? ITroveManager(troveManager).increaseTroveDebt(_asset, _borrower, _debtChange)
+			: ITroveManager(troveManager).decreaseTroveDebt(_asset, _borrower, _debtChange);
 
 		return (newColl, newDebt);
 	}
@@ -434,7 +434,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 
 	// Burn the specified amount of debt tokens from _account and decreases the total active debt
 	function _repayDebtTokens(address _asset, address _account, uint256 _debtTokenAmount, uint256 _refund) internal {
-		/// @dev the borrowing fee partial refund is accounted for when decreasing the debt, as it was included when vessel was opened
+		/// @dev the borrowing fee partial refund is accounted for when decreasing the debt, as it was included when trove was opened
 		IActivePool(activePool).decreaseDebt(_asset, _debtTokenAmount + _refund);
 		/// @dev the borrowing fee partial refund is not burned here, as it has already been burned by the FeeCollector
 		IDebtToken(debtToken).burn(_account, _debtTokenAmount);
@@ -457,14 +457,14 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		);
 	}
 
-	function _requireVesselIsActive(address _asset, address _borrower) internal view {
-		uint256 status = IVesselManager(vesselManager).getVesselStatus(_asset, _borrower);
-		require(status == 1, "BorrowerOps: Vessel does not exist or is closed");
+	function _requireTroveIsActive(address _asset, address _borrower) internal view {
+		uint256 status = ITroveManager(troveManager).getTroveStatus(_asset, _borrower);
+		require(status == 1, "BorrowerOps: Trove does not exist or is closed");
 	}
 
-	function _requireVesselIsNotActive(address _asset, address _borrower) internal view {
-		uint256 status = IVesselManager(vesselManager).getVesselStatus(_asset, _borrower);
-		require(status != 1, "BorrowerOps: Vessel is active");
+	function _requireTroveIsNotActive(address _asset, address _borrower) internal view {
+		uint256 status = ITroveManager(troveManager).getTroveStatus(_asset, _borrower);
+		require(status != 1, "BorrowerOps: Trove is active");
 	}
 
 	function _requireNonZeroDebtChange(uint256 _debtTokenChange) internal pure {
@@ -484,7 +484,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		bool _isRecoveryMode,
 		uint256 _collWithdrawal,
 		bool _isDebtIncrease,
-		LocalVariables_adjustVessel memory _vars
+		LocalVariables_adjustTrove memory _vars
 	) internal view {
 		/*
 		 * In Recovery Mode, only allow:
@@ -508,7 +508,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		} else {
 			// if Normal Mode
 			_requireICRisAboveMCR(_asset, _vars.newICR);
-			_vars.newTCR = _getNewTCRFromVesselChange(
+			_vars.newTCR = _getNewTCRFromTroveChange(
 				_asset,
 				_vars.collChange,
 				_vars.isCollIncrease,
@@ -530,12 +530,12 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 	function _requireICRisAboveCCR(address _asset, uint256 _newICR) internal view {
 		require(
 			_newICR >= IAdminContract(adminContract).getCcr(_asset),
-			"BorrowerOps: Operation must leave vessel with ICR >= CCR"
+			"BorrowerOps: Operation must leave trove with ICR >= CCR"
 		);
 	}
 
 	function _requireNewICRisAboveOldICR(uint256 _newICR, uint256 _oldICR) internal pure {
-		require(_newICR >= _oldICR, "BorrowerOps: Cannot decrease your Vessel's ICR in Recovery Mode");
+		require(_newICR >= _oldICR, "BorrowerOps: Cannot decrease your Trove's ICR in Recovery Mode");
 	}
 
 	function _requireNewTCRisAboveCCR(address _asset, uint256 _newTCR) internal view {
@@ -548,14 +548,14 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 	function _requireAtLeastMinNetDebt(address _asset, uint256 _netDebt) internal view {
 		require(
 			_netDebt >= IAdminContract(adminContract).getMinNetDebt(_asset),
-			"BorrowerOps: Vessel's net debt must be greater than minimum"
+			"BorrowerOps: Trove's net debt must be greater than minimum"
 		);
 	}
 
 	function _requireValidDebtTokenRepayment(address _asset, uint256 _currentDebt, uint256 _debtRepayment) internal view {
 		require(
 			_debtRepayment <= _currentDebt - IAdminContract(adminContract).getDebtTokenGasCompensation(_asset),
-			"BorrowerOps: Amount repaid must not be larger than the Vessel's debt"
+			"BorrowerOps: Amount repaid must not be larger than the Trove's debt"
 		);
 	}
 
@@ -569,7 +569,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 	// --- ICR and TCR getters ---
 
 	// Compute the new collateral ratio, considering the change in coll and debt. Assumes 0 pending rewards.
-	function _getNewNominalICRFromVesselChange(
+	function _getNewNominalICRFromTroveChange(
 		uint256 _coll,
 		uint256 _debt,
 		uint256 _collChange,
@@ -577,7 +577,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		uint256 _debtChange,
 		bool _isDebtIncrease
 	) internal pure returns (uint256) {
-		(uint256 newColl, uint256 newDebt) = _getNewVesselAmounts(
+		(uint256 newColl, uint256 newDebt) = _getNewTroveAmounts(
 			_coll,
 			_debt,
 			_collChange,
@@ -591,7 +591,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 	}
 
 	// Compute the new collateral ratio, considering the change in coll and debt. Assumes 0 pending rewards.
-	function _getNewICRFromVesselChange(
+	function _getNewICRFromTroveChange(
 		uint256 _coll,
 		uint256 _debt,
 		uint256 _collChange,
@@ -600,7 +600,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		bool _isDebtIncrease,
 		uint256 _price
 	) internal pure returns (uint256) {
-		(uint256 newColl, uint256 newDebt) = _getNewVesselAmounts(
+		(uint256 newColl, uint256 newDebt) = _getNewTroveAmounts(
 			_coll,
 			_debt,
 			_collChange,
@@ -613,7 +613,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		return newICR;
 	}
 
-	function _getNewVesselAmounts(
+	function _getNewTroveAmounts(
 		uint256 _coll,
 		uint256 _debt,
 		uint256 _collChange,
@@ -630,7 +630,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 		return (newColl, newDebt);
 	}
 
-	function _getNewTCRFromVesselChange(
+	function _getNewTCRFromTroveChange(
 		address _asset,
 		uint256 _collChange,
 		bool _isCollIncrease,

@@ -22,9 +22,9 @@ interface IFeeCollector {
 
 	error FeeCollector__ArrayMismatch();
 	error FeeCollector__BorrowerOperationsOnly(address sender, address expected);
-	error FeeCollector__BorrowerOperationsOrVesselManagerOnly(address sender, address expected1, address expected2);
+	error FeeCollector__BorrowerOperationsOrTroveManagerOnly(address sender, address expected1, address expected2);
 	error FeeCollector__InvalidPDMStakingAddress();
-	error FeeCollector__VesselManagerOnly(address sender, address expected);
+	error FeeCollector__TroveManagerOnly(address sender, address expected);
 
 	// Functions --------------------------------------------------------------------------------------------------------
 

@@ -9,16 +9,16 @@ import "./Dependencies/PalladiumBase.sol";
 import "./Dependencies/SafetyTransfer.sol";
 import "./Interfaces/IStabilityPool.sol";
 import "./Interfaces/IDebtToken.sol";
-import "./Interfaces/IVesselManager.sol";
+import "./Interfaces/ITroveManager.sol";
 import "./Interfaces/ICommunityIssuance.sol";
 
 /**
  * @title The Stability Pool holds debt tokens deposited by Stability Pool depositors.
- * @dev When a vessel is liquidated, then depending on system conditions, some of its debt tokens debt gets offset with
+ * @dev When a trove is liquidated, then depending on system conditions, some of its debt tokens debt gets offset with
  * debt tokens in the Stability Pool: that is, the offset debt evaporates, and an equal amount of debt tokens tokens in the Stability Pool is burned.
  *
  * Thus, a liquidation causes each depositor to receive a debt tokens loss, in proportion to their deposit as a share of total deposits.
- * They also receive an Collateral gain, as the amount of collateral of the liquidated vessel is distributed among Stability depositors,
+ * They also receive an Collateral gain, as the amount of collateral of the liquidated trove is distributed among Stability depositors,
  * in the same proportion.
  *
  * When a liquidation occurs, it depletes every deposit by the same fraction: for example, a liquidation that depletes 40%
@@ -142,7 +142,7 @@ contract StabilityPool is ReentrancyGuardUpgradeable, UUPSUpgradeable, Palladium
 
 	string public constant NAME = "StabilityPool";
 
-	// Tracker for debtToken held in the pool. Changes when users deposit/withdraw, and when Vessel debt is offset.
+	// Tracker for debtToken held in the pool. Changes when users deposit/withdraw, and when Trove debt is offset.
 	uint256 internal totalDebtTokenDeposits;
 
 	// totalColl.tokens and totalColl.amounts should be the same length and
@@ -389,13 +389,13 @@ contract StabilityPool is ReentrancyGuardUpgradeable, UUPSUpgradeable, Palladium
 	/**
 	 * @notice sets the offset for liquidation
 	 * @dev Cancels out the specified debt against the debtTokens contained in the Stability Pool (as far as possible)
-	 * and transfers the Vessel's collateral from ActivePool to StabilityPool.
-	 * Only called by liquidation functions in the VesselManager.
+	 * and transfers the Trove's collateral from ActivePool to StabilityPool.
+	 * Only called by liquidation functions in the TroveManager.
 	 * @param _debtToOffset how much debt to offset
 	 * @param _asset token address
 	 * @param _amountAdded token amount as uint256
 	 */
-	function offset(uint256 _debtToOffset, address _asset, uint256 _amountAdded) external onlyVesselManager {
+	function offset(uint256 _debtToOffset, address _asset, uint256 _amountAdded) external onlyTroveManager {
 		uint256 cachedTotalDebtTokenDeposits = totalDebtTokenDeposits; // cached to save an SLOAD
 		if (cachedTotalDebtTokenDeposits == 0 || _debtToOffset == 0) {
 			return;
@@ -880,9 +880,9 @@ contract StabilityPool is ReentrancyGuardUpgradeable, UUPSUpgradeable, Palladium
 		_;
 	}
 
-	modifier onlyVesselManager() {
-		if (msg.sender != vesselManager) {
-			revert StabilityPool__VesselManagerOnly(msg.sender, vesselManager);
+	modifier onlyTroveManager() {
+		if (msg.sender != troveManager) {
+			revert StabilityPool__TroveManagerOnly(msg.sender, troveManager);
 		}
 		_;
 	}

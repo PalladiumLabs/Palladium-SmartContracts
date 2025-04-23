@@ -39,7 +39,7 @@ contract FeeCollector is IFeeCollector, UUPSUpgradeable, OwnableUpgradeable, Add
 	// Public/external methods ------------------------------------------------------------------------------------------
 
 	/**
-	 * Triggered when a vessel is created and again whenever the borrower acquires additional loans.
+	 * Triggered when a trove is created and again whenever the borrower acquires additional loans.
 	 * Collects the minimum fee to the platform, for which there is no refund; holds on to the remaining fees until
 	 * debt is paid, liquidated, or expired.
 	 *
@@ -57,25 +57,25 @@ contract FeeCollector is IFeeCollector, UUPSUpgradeable, OwnableUpgradeable, Add
 	}
 
 	/**
-	 * Triggered when a vessel is adjusted or closed (and the borrower has paid back/decreased his loan).
+	 * Triggered when a trove is adjusted or closed (and the borrower has paid back/decreased his loan).
 	 */
 	function decreaseDebt(
 		address _borrower,
 		address _asset,
 		uint256 _paybackFraction
-	) external override onlyBorrowerOperationsOrVesselManager {
+	) external override onlyBorrowerOperationsOrTroveManager {
 		_decreaseDebt(_borrower, _asset, _paybackFraction);
 	}
 
 	/**
 	 * Triggered when a debt is paid in full.
 	 */
-	function closeDebt(address _borrower, address _asset) external override onlyBorrowerOperationsOrVesselManager {
+	function closeDebt(address _borrower, address _asset) external override onlyBorrowerOperationsOrTroveManager {
 		_decreaseDebt(_borrower, _asset, 1 ether);
 	}
 
 	/**
-	 * Simulates the refund due -if- vessel would be closed at this moment (helper function used by the UI).
+	 * Simulates the refund due -if- trove would be closed at this moment (helper function used by the UI).
 	 */
 	function simulateRefund(
 		address _borrower,
@@ -99,10 +99,10 @@ contract FeeCollector is IFeeCollector, UUPSUpgradeable, OwnableUpgradeable, Add
 	}
 
 	/**
-	 * Triggered when a vessel is liquidated; in that case, all remaining fees are collected by the platform,
+	 * Triggered when a trove is liquidated; in that case, all remaining fees are collected by the platform,
 	 * and no refunds are generated.
 	 */
-	function liquidateDebt(address _borrower, address _asset) external override onlyVesselManager {
+	function liquidateDebt(address _borrower, address _asset) external override onlyTroveManager {
 		FeeRecord memory mRecord = feeRecords[_borrower][_asset];
 		if (mRecord.amount != 0) {
 			_closeExpiredOrLiquidatedFeeRecord(_borrower, _asset, mRecord.amount);
@@ -137,10 +137,10 @@ contract FeeCollector is IFeeCollector, UUPSUpgradeable, OwnableUpgradeable, Add
 	}
 
 	/**
-	 * Triggered by VesselManager.finalizeRedemption(); assumes _amount of _asset has been already transferred to
+	 * Triggered by TroveManager.finalizeRedemption(); assumes _amount of _asset has been already transferred to
 	 * getProtocolRevenueDestination().
 	 */
-	function handleRedemptionFee(address _asset, uint256 _amount) external onlyVesselManager {
+	function handleRedemptionFee(address _asset, uint256 _amount) external onlyTroveManager {
 		if (_routeToPDMStaking()) {
 			IPDMStaking(pdmStaking).increaseFee_Asset(_asset, _amount);
 		}
@@ -310,16 +310,16 @@ contract FeeCollector is IFeeCollector, UUPSUpgradeable, OwnableUpgradeable, Add
 		_;
 	}
 
-	modifier onlyVesselManager() {
-		if (msg.sender != vesselManager) {
-			revert FeeCollector__VesselManagerOnly(msg.sender, vesselManager);
+	modifier onlyTroveManager() {
+		if (msg.sender != troveManager) {
+			revert FeeCollector__TroveManagerOnly(msg.sender, troveManager);
 		}
 		_;
 	}
 
-	modifier onlyBorrowerOperationsOrVesselManager() {
-		if (msg.sender != borrowerOperations && msg.sender != vesselManager) {
-			revert FeeCollector__BorrowerOperationsOrVesselManagerOnly(msg.sender, borrowerOperations, vesselManager);
+	modifier onlyBorrowerOperationsOrTroveManager() {
+		if (msg.sender != borrowerOperations && msg.sender != troveManager) {
+			revert FeeCollector__BorrowerOperationsOrTroveManagerOnly(msg.sender, borrowerOperations, troveManager);
 		}
 		_;
 	}

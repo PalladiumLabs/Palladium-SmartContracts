@@ -12,9 +12,9 @@ import "./Addresses.sol";
 
 /*
  * The Default Pool holds the collateral and debt token amounts from liquidations that have been redistributed
- * to active vessels but not yet "applied", i.e. not yet recorded on a recipient active vessel's struct.
+ * to active troves but not yet "applied", i.e. not yet recorded on a recipient active trove's struct.
  *
- * When a vessel makes an operation that applies to its pending collateral and debt, they are moved
+ * When a trove makes an operation that applies to its pending collateral and debt, they are moved
  * from the Default Pool to the Active Pool.
  */
 contract DefaultPool is OwnableUpgradeable, UUPSUpgradeable, IDefaultPool, Addresses {
@@ -42,13 +42,13 @@ contract DefaultPool is OwnableUpgradeable, UUPSUpgradeable, IDefaultPool, Addre
 		return debtTokenBalances[_asset];
 	}
 
-	function increaseDebt(address _asset, uint256 _amount) external override callerIsVesselManager {
+	function increaseDebt(address _asset, uint256 _amount) external override callerIsTroveManager {
 		uint256 newDebt = debtTokenBalances[_asset] + _amount;
 		debtTokenBalances[_asset] = newDebt;
 		emit DefaultPoolDebtUpdated(_asset, newDebt);
 	}
 
-	function decreaseDebt(address _asset, uint256 _amount) external override callerIsVesselManager {
+	function decreaseDebt(address _asset, uint256 _amount) external override callerIsTroveManager {
 		uint256 newDebt = debtTokenBalances[_asset] - _amount;
 		debtTokenBalances[_asset] = newDebt;
 		emit DefaultPoolDebtUpdated(_asset, newDebt);
@@ -56,7 +56,7 @@ contract DefaultPool is OwnableUpgradeable, UUPSUpgradeable, IDefaultPool, Addre
 
 	// --- Pool functionality ---
 
-	function sendAssetToActivePool(address _asset, uint256 _amount) external override callerIsVesselManager {
+	function sendAssetToActivePool(address _asset, uint256 _amount) external override callerIsTroveManager {
 		uint256 safetyTransferAmount = SafetyTransfer.decimalsCorrection(_asset, _amount);
 		if (safetyTransferAmount == 0) {
 			return;
@@ -79,8 +79,8 @@ contract DefaultPool is OwnableUpgradeable, UUPSUpgradeable, IDefaultPool, Addre
 		_;
 	}
 
-	modifier callerIsVesselManager() {
-		require(msg.sender == vesselManager, "DefaultPool: Caller is not the VesselManager");
+	modifier callerIsTroveManager() {
+		require(msg.sender == troveManager, "DefaultPool: Caller is not the TroveManager");
 		_;
 	}
 

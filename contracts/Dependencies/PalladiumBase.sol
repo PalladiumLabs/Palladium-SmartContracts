@@ -15,13 +15,13 @@ import "../Interfaces/IDefaultPool.sol";
 import "../Addresses.sol";
 
 /*
- * Base contract for VesselManager, BorrowerOperations and StabilityPool. Contains global system constants and
+ * Base contract for TroveManager, BorrowerOperations and StabilityPool. Contains global system constants and
  * common functions.
  */
 abstract contract PalladiumBase is IPalladiumBase, BaseMath, OwnableUpgradeable, Addresses {
 	// --- Gas compensation functions ---
 
-	// Returns the composite debt (drawn debt + gas compensation) of a vessel, for the purpose of ICR calculation
+	// Returns the composite debt (drawn debt + gas compensation) of a trove, for the purpose of ICR calculation
 	function _getCompositeDebt(address _asset, uint256 _debt) internal view returns (uint256) {
 		return _debt + IAdminContract(adminContract).getDebtTokenGasCompensation(_asset);
 	}
@@ -30,7 +30,7 @@ abstract contract PalladiumBase is IPalladiumBase, BaseMath, OwnableUpgradeable,
 		return _debt - IAdminContract(adminContract).getDebtTokenGasCompensation(_asset);
 	}
 
-	// Return the amount of ETH to be drawn from a vessel's collateral and sent as gas compensation.
+	// Return the amount of ETH to be drawn from a trove's collateral and sent as gas compensation.
 	function _getCollGasCompensation(address _asset, uint256 _entireColl) internal view returns (uint256) {
 		return _entireColl / IAdminContract(adminContract).getPercentDivisor(_asset);
 	}

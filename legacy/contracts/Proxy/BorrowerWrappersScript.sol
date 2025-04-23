@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import "../Dependencies/PalladiumMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../Interfaces/IBorrowerOperations.sol";
-import "../Interfaces/IVesselManager.sol";
+import "../Interfaces/ITroveManager.sol";
 import "../Interfaces/IStabilityPool.sol";
 import "../Interfaces/IPriceFeed.sol";
 import "../Interfaces/IPDMStaking.sol";
@@ -23,7 +23,7 @@ contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, 
 
 	string public constant NAME = "BorrowerWrappersScript";
 
-	IVesselManager immutable vesselManager;
+	ITroveManager immutable troveManager;
 	IStabilityPool immutable stabilityPool;
 	IPriceFeed immutable priceFeed;
 	IERC20 immutable debtToken;
@@ -31,32 +31,32 @@ contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, 
 
 	constructor(
 		address _borrowerOperationsAddress,
-		address _vesselManagerAddress,
+		address _troveManagerAddress,
 		address _PDMStakingAddress
 	) BorrowerOperationsScript(IBorrowerOperations(_borrowerOperationsAddress)) PDMStakingScript(_PDMStakingAddress) {
-		IVesselManager vesselManagerCached = IVesselManager(_vesselManagerAddress);
-		vesselManager = vesselManagerCached;
+		ITroveManager troveManagerCached = ITroveManager(_troveManagerAddress);
+		troveManager = troveManagerCached;
 
-		IStabilityPool stabilityPoolCached = vesselManagerCached.stabilityPool();
+		IStabilityPool stabilityPoolCached = troveManagerCached.stabilityPool();
 		stabilityPool = stabilityPoolCached;
 
-		IPriceFeed priceFeedCached = vesselManagerCached.adminContract().priceFeed();
+		IPriceFeed priceFeedCached = troveManagerCached.adminContract().priceFeed();
 		priceFeed = priceFeedCached;
 
-		address debtTokenCached = address(vesselManagerCached.debtToken());
+		address debtTokenCached = address(troveManagerCached.debtToken());
 		debtToken = IERC20(debtTokenCached);
 
 		address pdmTokenCached = address(IPDMStaking(_PDMStakingAddress).pdmToken());
 		pdmToken = IERC20(pdmTokenCached);
 
-		// IPDMStaking pdmStakingCached = vesselManagerCached.pdmStaking();
+		// IPDMStaking pdmStakingCached = troveManagerCached.pdmStaking();
 		// require(
 		// 	_PDMStakingAddress == address(pdmStakingCached),
 		// 	"BorrowerWrappersScript: Wrong PDMStaking address"
 		// );
 	}
 
-	function claimCollateralAndOpenVessel(
+	function claimCollateralAndOpenTrove(
 		address _asset,
 		uint256 _VUSDAmount,
 		address _upperHint,
@@ -74,8 +74,8 @@ contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, 
 
 		uint256 totalCollateral = balanceAfter - balanceBefore + msg.value;
 
-		// Open vessel with obtained collateral, plus collateral sent by user
-		borrowerOperations.openVessel(_asset, totalCollateral, _VUSDAmount, _upperHint, _lowerHint);
+		// Open trove with obtained collateral, plus collateral sent by user
+		borrowerOperations.openTrove(_asset, totalCollateral, _VUSDAmount, _upperHint, _lowerHint);
 	}
 
 	function claimSPRewardsAndRecycle(address _asset, uint256 _maxFee, address _upperHint, address _lowerHint) external {
@@ -90,11 +90,11 @@ contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, 
 		uint256 PDMBalanceAfter = pdmToken.balanceOf(address(this));
 		uint256 claimedCollateral = collBalanceAfter - collBalanceBefore;
 
-		// Add claimed ETH to vessel, get more VUSD and stake it into the Stability Pool
+		// Add claimed ETH to trove, get more VUSD and stake it into the Stability Pool
 		if (claimedCollateral > 0) {
-			_requireUserHasVessel(vars._asset, address(this));
+			_requireUserHasTrove(vars._asset, address(this));
 			vars.netVUSDAmount = _getNetVUSDAmount(vars._asset, claimedCollateral);
-			borrowerOperations.adjustVessel(
+			borrowerOperations.adjustTrove(
 				vars._asset,
 				claimedCollateral,
 				0,
@@ -134,11 +134,11 @@ contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, 
 		uint256 gainedCollateral = address(this).balance - collBalanceBefore; // stack too deep issues :'(
 		uint256 gainedVUSD = IDebtToken(debtToken).balanceOf(address(this)) - VUSDBalanceBefore;
 
-		// Top up vessel and get more VUSD, keeping ICR constant
+		// Top up trove and get more VUSD, keeping ICR constant
 		if (gainedCollateral > 0) {
-			_requireUserHasVessel(vars._asset, address(this));
+			_requireUserHasTrove(vars._asset, address(this));
 			vars.netVUSDAmount = _getNetVUSDAmount(vars._asset, gainedCollateral);
-			borrowerOperations.adjustVessel(
+			borrowerOperations.adjustTrove(
 				vars._asset,
 				gainedCollateral,
 				0,
@@ -164,20 +164,20 @@ contract BorrowerWrappersScript is BorrowerOperationsScript, ETHTransferScript, 
 
 	function _getNetVUSDAmount(address _asset, uint256 _collateral) internal returns (uint256) {
 		uint256 price = IPriceFeed(priceFeed).fetchPrice(_asset);
-		uint256 ICR = IVesselManager(vesselManager).getCurrentICR(_asset, address(this), price);
+		uint256 ICR = ITroveManager(troveManager).getCurrentICR(_asset, address(this), price);
 
 		uint256 VUSDAmount = (_collateral * price) / ICR;
-		uint256 borrowingRate = IVesselManager(vesselManager).adminContract().getBorrowingFee(_asset);
+		uint256 borrowingRate = ITroveManager(troveManager).adminContract().getBorrowingFee(_asset);
 		uint256 netDebt = (VUSDAmount * PalladiumMath.DECIMAL_PRECISION) /
 			(PalladiumMath.DECIMAL_PRECISION + borrowingRate);
 
 		return netDebt;
 	}
 
-	function _requireUserHasVessel(address _asset, address _depositor) internal view {
+	function _requireUserHasTrove(address _asset, address _depositor) internal view {
 		require(
-			IVesselManager(vesselManager).getVesselStatus(_asset, _depositor) == 1,
-			"BorrowerWrappersScript: caller must have an active vessel"
+			ITroveManager(troveManager).getTroveStatus(_asset, _depositor) == 1,
+			"BorrowerWrappersScript: caller must have an active trove"
 		);
 	}
 }

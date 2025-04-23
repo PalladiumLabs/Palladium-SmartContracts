@@ -14,12 +14,12 @@ abstract contract AddressesMainnet {
 	address public constant gasPoolAddress = 0x40E0e274A42D9b1a9D4B64dC6c46D21228d45C20;
 	address public constant grvtStaking = address(0);
 	address public constant priceFeed = 0x89F1ecCF2644902344db02788A790551Bb070351;
-	address public constant sortedVessels = 0xF31D88232F36098096d1eB69f0de48B53a1d18Ce;
+	address public constant sortedTroves = 0xF31D88232F36098096d1eB69f0de48B53a1d18Ce;
 	address public constant stabilityPool = 0x4F39F12064D83F6Dd7A2BDb0D53aF8be560356A6;
 	address public constant timelockAddress = 0x57a1953bF194A1EF73396e442Ac7Dc761dCd23cc;
 	address public constant treasuryAddress = 0x6F8Fe995422c5efE6487A7B07f67E84aaD9D4eC8;
-	address public constant vesselManager = 0xdB5DAcB1DFbe16326C3656a88017f0cB4ece0977;
-	address public constant vesselManagerOperations = 0xc49B737fa56f9142974a54F6C66055468eC631d0;
+	address public constant troveManager = 0xdB5DAcB1DFbe16326C3656a88017f0cB4ece0977;
+	address public constant troveManagerOperations = 0xc49B737fa56f9142974a54F6C66055468eC631d0;
 
 	/**
 	 * @dev This empty reserved space is put in place to allow future versions to add new
@@ -28,4 +28,3 @@ abstract contract AddressesMainnet {
 	 */
 	uint256[40] private __gap;
 }
-

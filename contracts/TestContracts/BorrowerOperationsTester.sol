@@ -6,7 +6,7 @@ import "../BorrowerOperations.sol";
 /* Tester contract inherits from BorrowerOperations, and provides external functions 
 for testing the parent's internal functions. */
 contract BorrowerOperationsTester is BorrowerOperations {
-	function getNewICRFromVesselChange(
+	function getNewICRFromTroveChange(
 		uint256 _coll,
 		uint256 _debt,
 		uint256 _collChange,
@@ -15,19 +15,10 @@ contract BorrowerOperationsTester is BorrowerOperations {
 		bool isDebtIncrease,
 		uint256 _price
 	) external pure returns (uint256) {
-		return
-			_getNewICRFromVesselChange(
-				_coll,
-				_debt,
-				_collChange,
-				isCollIncrease,
-				_debtChange,
-				isDebtIncrease,
-				_price
-			);
+		return _getNewICRFromTroveChange(_coll, _debt, _collChange, isCollIncrease, _debtChange, isDebtIncrease, _price);
 	}
 
-	function getNewTCRFromVesselChange(
+	function getNewTCRFromTroveChange(
 		address _asset,
 		uint256 _collChange,
 		bool isCollIncrease,
@@ -35,15 +26,7 @@ contract BorrowerOperationsTester is BorrowerOperations {
 		bool isDebtIncrease,
 		uint256 _price
 	) external view returns (uint256) {
-		return
-			_getNewTCRFromVesselChange(
-				_asset,
-				_collChange,
-				isCollIncrease,
-				_debtChange,
-				isDebtIncrease,
-				_price
-			);
+		return _getNewTCRFromTroveChange(_asset, _collChange, isCollIncrease, _debtChange, isDebtIncrease, _price);
 	}
 
 	function getUSDValue(uint256 _coll, uint256 _price) external pure returns (uint256) {
@@ -60,16 +43,7 @@ contract BorrowerOperationsTester is BorrowerOperations {
 		address _upperHint,
 		address _lowerHint
 	) external {
-		_adjustVessel(
-			_asset,
-			_amount,
-			_borrower,
-			_collWithdrawal,
-			_debtChange,
-			_isDebtIncrease,
-			_upperHint,
-			_lowerHint
-		);
+		_adjustTrove(_asset, _amount, _borrower, _collWithdrawal, _debtChange, _isDebtIncrease, _upperHint, _lowerHint);
 	}
 
 	// Payable fallback function

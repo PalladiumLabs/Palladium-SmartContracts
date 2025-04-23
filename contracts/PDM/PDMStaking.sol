@@ -43,7 +43,7 @@ contract PDMStaking is IPDMStaking, PausableUpgradeable, OwnableUpgradeable, Bas
 	address public debtTokenAddress;
 	address public feeCollectorAddress;
 	address public treasuryAddress;
-	address public vesselManagerAddress;
+	address public troveManagerAddress;
 
 	bool public isSetupInitialized;
 
@@ -62,7 +62,7 @@ contract PDMStaking is IPDMStaking, PausableUpgradeable, OwnableUpgradeable, Bas
 		address _feeCollectorAddress,
 		address _pdmTokenAddress,
 		address _treasuryAddress,
-		address _vesselManagerAddress
+		address _troveManagerAddress
 	) external onlyOwner {
 		require(!isSetupInitialized, "Setup is already initialized");
 
@@ -70,7 +70,7 @@ contract PDMStaking is IPDMStaking, PausableUpgradeable, OwnableUpgradeable, Bas
 		feeCollectorAddress = _feeCollectorAddress;
 		pdmToken = IERC20Upgradeable(_pdmTokenAddress);
 		treasuryAddress = _treasuryAddress;
-		vesselManagerAddress = _vesselManagerAddress;
+		troveManagerAddress = _troveManagerAddress;
 
 		isAssetTracked[ETH_REF_ADDRESS] = true;
 		ASSET_TYPE.push(ETH_REF_ADDRESS);
@@ -171,7 +171,7 @@ contract PDMStaking is IPDMStaking, PausableUpgradeable, OwnableUpgradeable, Bas
 
 	// --- Reward-per-unit-staked increase functions. Called by Palladium core contracts ---
 
-	function increaseFee_Asset(address _asset, uint256 _assetFee) external override callerIsVesselManager {
+	function increaseFee_Asset(address _asset, uint256 _assetFee) external override callerIsTroveManager {
 		if (paused()) {
 			sendToTreasury(_asset, _assetFee);
 			return;
@@ -254,8 +254,8 @@ contract PDMStaking is IPDMStaking, PausableUpgradeable, OwnableUpgradeable, Bas
 
 	// --- 'require' functions ---
 
-	modifier callerIsVesselManager() {
-		require(msg.sender == vesselManagerAddress, "PDMStaking: caller is not VesselManager");
+	modifier callerIsTroveManager() {
+		require(msg.sender == troveManagerAddress, "PDMStaking: caller is not TroveManager");
 		_;
 	}
 

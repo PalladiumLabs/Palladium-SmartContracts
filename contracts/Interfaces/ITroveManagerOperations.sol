@@ -3,9 +3,9 @@
 pragma solidity ^0.8.19;
 
 import "./IPalladiumBase.sol";
-import "./IVesselManager.sol";
+import "./ITroveManager.sol";
 
-interface IVesselManagerOperations is IPalladiumBase {
+interface ITroveManagerOperations is IPalladiumBase {
 	// Events -----------------------------------------------------------------------------------------------------------
 
 	event Redemption(
@@ -24,30 +24,30 @@ interface IVesselManagerOperations is IPalladiumBase {
 		uint256 _debtTokenGasCompensation
 	);
 
-	event VesselLiquidated(
+	event TroveLiquidated(
 		address indexed _asset,
 		address indexed _borrower,
 		uint256 _debt,
 		uint256 _coll,
-		IVesselManager.VesselManagerOperation _operation
+		ITroveManager.TroveManagerOperation _operation
 	);
 
 	event RedemptionSoftenParamChanged(uint256 _redemptionSofteningParam);
 
 	// Custom Errors ----------------------------------------------------------------------------------------------------
 
-	error VesselManagerOperations__InvalidArraySize();
-	error VesselManagerOperations__EmptyAmount();
-	error VesselManagerOperations__FeePercentOutOfBounds(uint256 lowerBoundary, uint256 upperBoundary);
-	error VesselManagerOperations__InsufficientDebtTokenBalance(uint256 availableBalance);
-	error VesselManagerOperations__NothingToLiquidate();
-	error VesselManagerOperations__OnlyVesselManager();
-	error VesselManagerOperations__RedemptionIsBlocked();
-	error VesselManagerOperations__TCRMustBeAboveMCR(uint256 tcr, uint256 mcr);
-	error VesselManagerOperations__UnableToRedeemAnyAmount();
-	error VesselManagerOperations__VesselNotActive();
-	error VesselManagerOperations__InvalidParam();
-	error VesselManagerOperations__NotTimelock();
+	error TroveManagerOperations__InvalidArraySize();
+	error TroveManagerOperations__EmptyAmount();
+	error TroveManagerOperations__FeePercentOutOfBounds(uint256 lowerBoundary, uint256 upperBoundary);
+	error TroveManagerOperations__InsufficientDebtTokenBalance(uint256 availableBalance);
+	error TroveManagerOperations__NothingToLiquidate();
+	error TroveManagerOperations__OnlyTroveManager();
+	error TroveManagerOperations__RedemptionIsBlocked();
+	error TroveManagerOperations__TCRMustBeAboveMCR(uint256 tcr, uint256 mcr);
+	error TroveManagerOperations__UnableToRedeemAnyAmount();
+	error TroveManagerOperations__TroveNotActive();
+	error TroveManagerOperations__InvalidParam();
+	error TroveManagerOperations__NotTimelock();
 
 	// Structs ----------------------------------------------------------------------------------------------------------
 
@@ -81,8 +81,8 @@ interface IVesselManagerOperations is IPalladiumBase {
 	}
 
 	struct LiquidationValues {
-		uint256 entireVesselDebt;
-		uint256 entireVesselColl;
+		uint256 entireTroveDebt;
+		uint256 entireTroveColl;
 		uint256 collGasCompensation;
 		uint256 debtTokenGasCompensation;
 		uint256 debtToOffset;
@@ -119,9 +119,9 @@ interface IVesselManagerOperations is IPalladiumBase {
 
 	function liquidate(address _asset, address _borrower) external;
 
-	function liquidateVessels(address _asset, uint256 _n) external;
+	function liquidateTroves(address _asset, uint256 _n) external;
 
-	function batchLiquidateVessels(address _asset, address[] memory _vesselArray) external;
+	function batchLiquidateTroves(address _asset, address[] memory _troveArray) external;
 
 	function redeemCollateral(
 		address _asset,

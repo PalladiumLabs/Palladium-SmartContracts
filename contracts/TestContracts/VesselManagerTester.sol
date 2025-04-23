@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.19;
-import "../VesselManager.sol";
+import "../TroveManager.sol";
 
-/* Tester contract inherits from VesselManager, and provides external functions 
+/* Tester contract inherits from TroveManager, and provides external functions 
 for testing the parent's internal functions. */
 
-contract VesselManagerTester is VesselManager {
+contract TroveManagerTester is TroveManager {
 	function computeICR(uint256 _coll, uint256 _debt, uint256 _price) external pure returns (uint256) {
 		return PalladiumMath._computeCR(_coll, _debt, _price);
 	}
@@ -51,8 +51,8 @@ contract VesselManagerTester is VesselManager {
 		return _getNetDebt(_asset, _debtVal);
 	}
 
-	function callInternalRemoveVesselOwner(address _asset, address _vesselOwner) external {
-		uint256 vesselOwnersArrayLength = VesselOwners[_asset].length;
-		_removeVesselOwner(_asset, _vesselOwner, vesselOwnersArrayLength);
+	function callInternalRemoveTroveOwner(address _asset, address _troveOwner) external {
+		uint256 troveOwnersArrayLength = TroveOwners[_asset].length;
+		_removeTroveOwner(_asset, _troveOwner, troveOwnersArrayLength);
 	}
 }

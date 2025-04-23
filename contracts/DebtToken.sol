@@ -13,7 +13,7 @@ contract DebtToken is IDebtToken, ERC20Permit, Ownable {
 
 	// address public constant borrowerOperationsAddress = 0x2bCA0300c2aa65de6F19c2d241B54a445C9990E2;
 	// address public constant stabilityPoolAddress = 0x4F39F12064D83F6Dd7A2BDb0D53aF8be560356A6;
-	// address public constant vesselManagerAddress = 0xdB5DAcB1DFbe16326C3656a88017f0cB4ece0977;
+	// address public constant troveManagerAddress = 0xdB5DAcB1DFbe16326C3656a88017f0cB4ece0977;
 
 	// MAINNET-ONLY SECTION END ---------------------------------------------------------------------------------------
 
@@ -21,22 +21,22 @@ contract DebtToken is IDebtToken, ERC20Permit, Ownable {
 
 	address public borrowerOperationsAddress;
 	address public stabilityPoolAddress;
-	address public vesselManagerAddress;
+	address public troveManagerAddress;
 
 	function setAddresses(
 		address _borrowerOperationsAddress,
 		address _stabilityPoolAddress,
-		address _vesselManagerAddress
+		address _troveManagerAddress
 	) public onlyOwner {
 		require(
 			_borrowerOperationsAddress != address(0) &&
 				_stabilityPoolAddress != address(0) &&
-				_vesselManagerAddress != address(0),
+				_troveManagerAddress != address(0),
 			"Invalid address"
 		);
 		borrowerOperationsAddress = _borrowerOperationsAddress;
 		stabilityPoolAddress = _stabilityPoolAddress;
-		vesselManagerAddress = _vesselManagerAddress;
+		troveManagerAddress = _troveManagerAddress;
 	}
 
 	// TESTNET-ONLY SECTION END ---------------------------------------------------------------------------------------
@@ -71,7 +71,7 @@ contract DebtToken is IDebtToken, ERC20Permit, Ownable {
 	}
 
 	function burn(address _account, uint256 _amount) external override {
-		_requireCallerIsBOorVesselMorSP();
+		_requireCallerIsBOorTroveMorSP();
 		_burn(_account, _amount);
 	}
 
@@ -93,7 +93,7 @@ contract DebtToken is IDebtToken, ERC20Permit, Ownable {
 	}
 
 	function returnFromPool(address _poolAddress, address _receiver, uint256 _amount) external override {
-		_requireCallerIsVesselMorSP();
+		_requireCallerIsTroveMorSP();
 		_transfer(_poolAddress, _receiver, _amount);
 	}
 
@@ -130,12 +130,12 @@ contract DebtToken is IDebtToken, ERC20Permit, Ownable {
 		require(msg.sender == borrowerOperationsAddress, "DebtToken: Caller is not BorrowerOperations");
 	}
 
-	function _requireCallerIsBOorVesselMorSP() internal view {
+	function _requireCallerIsBOorTroveMorSP() internal view {
 		require(
 			msg.sender == borrowerOperationsAddress ||
-				msg.sender == vesselManagerAddress ||
+				msg.sender == troveManagerAddress ||
 				msg.sender == stabilityPoolAddress,
-			"DebtToken: Caller is neither BorrowerOperations nor VesselManager nor StabilityPool"
+			"DebtToken: Caller is neither BorrowerOperations nor TroveManager nor StabilityPool"
 		);
 	}
 
@@ -143,10 +143,10 @@ contract DebtToken is IDebtToken, ERC20Permit, Ownable {
 		require(msg.sender == stabilityPoolAddress, "DebtToken: Caller is not the StabilityPool");
 	}
 
-	function _requireCallerIsVesselMorSP() internal view {
+	function _requireCallerIsTroveMorSP() internal view {
 		require(
-			msg.sender == vesselManagerAddress || msg.sender == stabilityPoolAddress,
-			"DebtToken: Caller is neither VesselManager nor StabilityPool"
+			msg.sender == troveManagerAddress || msg.sender == stabilityPoolAddress,
+			"DebtToken: Caller is neither TroveManager nor StabilityPool"
 		);
 	}
 }

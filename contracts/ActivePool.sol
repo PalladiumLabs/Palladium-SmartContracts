@@ -11,9 +11,9 @@ import "./Addresses.sol";
 import "./Interfaces/IActivePool.sol";
 
 /*
- * The Active Pool holds the collaterals and debt amounts for all active vessels.
+ * The Active Pool holds the collaterals and debt amounts for all active troves.
  *
- * When a vessel is liquidated, it's collateral and debt tokens are transferred from the Active Pool, to either the
+ * When a trove is liquidated, it's collateral and debt tokens are transferred from the Active Pool, to either the
  * Stability Pool, the Default Pool, or both, depending on the liquidation conditions.
  *
  */
@@ -35,28 +35,28 @@ contract ActivePool is OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgra
 		_;
 	}
 
-	modifier callerIsBorrowerOpsOrVesselMgr() {
+	modifier callerIsBorrowerOpsOrTroveMgr() {
 		require(
-			msg.sender == borrowerOperations || msg.sender == vesselManager,
+			msg.sender == borrowerOperations || msg.sender == troveManager,
 			"ActivePool: Caller is not an authorized Palladium contract"
 		);
 		_;
 	}
 
-	modifier callerIsBorrowerOpsOrStabilityPoolOrVesselMgr() {
+	modifier callerIsBorrowerOpsOrStabilityPoolOrTroveMgr() {
 		require(
-			msg.sender == borrowerOperations || msg.sender == stabilityPool || msg.sender == vesselManager,
+			msg.sender == borrowerOperations || msg.sender == stabilityPool || msg.sender == troveManager,
 			"ActivePool: Caller is not an authorized Palladium contract"
 		);
 		_;
 	}
 
-	modifier callerIsBorrowerOpsOrStabilityPoolOrVesselMgrOrVesselMgrOps() {
+	modifier callerIsBorrowerOpsOrStabilityPoolOrTroveMgrOrTroveMgrOps() {
 		require(
 			msg.sender == borrowerOperations ||
 				msg.sender == stabilityPool ||
-				msg.sender == vesselManager ||
-				msg.sender == vesselManagerOperations,
+				msg.sender == troveManager ||
+				msg.sender == troveManagerOperations,
 			"ActivePool: Caller is not an authorized Palladium contract"
 		);
 		_;
@@ -80,7 +80,7 @@ contract ActivePool is OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgra
 		return debtTokenBalances[_asset];
 	}
 
-	function increaseDebt(address _collateral, uint256 _amount) external override callerIsBorrowerOpsOrVesselMgr {
+	function increaseDebt(address _collateral, uint256 _amount) external override callerIsBorrowerOpsOrTroveMgr {
 		uint256 newDebt = debtTokenBalances[_collateral] + _amount;
 		debtTokenBalances[_collateral] = newDebt;
 		emit ActivePoolDebtUpdated(_collateral, newDebt);
@@ -89,7 +89,7 @@ contract ActivePool is OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgra
 	function decreaseDebt(
 		address _asset,
 		uint256 _amount
-	) external override callerIsBorrowerOpsOrStabilityPoolOrVesselMgr {
+	) external override callerIsBorrowerOpsOrStabilityPoolOrTroveMgr {
 		uint256 newDebt = debtTokenBalances[_asset] - _amount;
 		debtTokenBalances[_asset] = newDebt;
 		emit ActivePoolDebtUpdated(_asset, newDebt);
@@ -101,7 +101,7 @@ contract ActivePool is OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgra
 		address _asset,
 		address _account,
 		uint256 _amount
-	) external override nonReentrant callerIsBorrowerOpsOrStabilityPoolOrVesselMgrOrVesselMgrOps {
+	) external override nonReentrant callerIsBorrowerOpsOrStabilityPoolOrTroveMgrOrTroveMgrOps {
 		uint256 safetyTransferAmount = SafetyTransfer.decimalsCorrection(_asset, _amount);
 		if (safetyTransferAmount == 0) return;
 

@@ -4,27 +4,27 @@ pragma solidity ^0.8.19;
 import "./Addresses.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "./Interfaces/ISortedVessels.sol";
-import "./Interfaces/IVesselManager.sol";
+import "./Interfaces/ISortedTroves.sol";
+import "./Interfaces/ITroveManager.sol";
 
 /*
  * A sorted doubly linked list with nodes sorted in descending order.
  *
- * Nodes map to active Vessels in the system - the ID property is the address of a Vessel owner.
+ * Nodes map to active Troves in the system - the ID property is the address of a Trove owner.
  * Nodes are ordered according to their current nominal individual collateral ratio (NICR),
  * which is like the ICR but without the price, i.e., just collateral / debt.
  *
  * The list optionally accepts insert position hints.
  *
- * NICRs are computed dynamically at runtime, and not stored on the Node. This is because NICRs of active Vessels
+ * NICRs are computed dynamically at runtime, and not stored on the Node. This is because NICRs of active Troves
  * change dynamically as liquidation events occur.
  *
- * The list relies on the fact that liquidation events preserve ordering: a liquidation decreases the NICRs of all active Vessels,
+ * The list relies on the fact that liquidation events preserve ordering: a liquidation decreases the NICRs of all active Troves,
  * but maintains their order. A node inserted based on current NICR will maintain the correct position,
  * relative to it's peers, as rewards accumulate, as long as it's raw collateral and debt have not changed.
  * Thus, Nodes remain sorted by current NICR.
  *
- * Nodes need only be re-inserted upon a Vessel operation - when the owner adds or removes collateral or debt
+ * Nodes need only be re-inserted upon a Trove operation - when the owner adds or removes collateral or debt
  * to their position.
  *
  * The list is a modification of the following audited SortedDoublyLinkedList:
@@ -40,8 +40,8 @@ import "./Interfaces/IVesselManager.sol";
  *
  * - Public functions with parameters have been made internal to save gas, and given an external wrapper function for external access
  */
-contract SortedVessels is OwnableUpgradeable, UUPSUpgradeable, ISortedVessels, Addresses {
-	string public constant NAME = "SortedVessels";
+contract SortedTroves is OwnableUpgradeable, UUPSUpgradeable, ISortedTroves, Addresses {
+	string public constant NAME = "SortedTroves";
 
 	// Information for a node in the list
 	struct Node {
@@ -78,7 +78,7 @@ contract SortedVessels is OwnableUpgradeable, UUPSUpgradeable, ISortedVessels, A
 	 */
 
 	function insert(address _asset, address _id, uint256 _NICR, address _prevId, address _nextId) external override {
-		_requireCallerIsBOorVesselM();
+		_requireCallerIsBOorTroveM();
 		_insert(_asset, _id, _NICR, _prevId, _nextId);
 	}
 
@@ -86,11 +86,11 @@ contract SortedVessels is OwnableUpgradeable, UUPSUpgradeable, ISortedVessels, A
 		Data storage assetData = data[_asset];
 
 		// List must not already contain node
-		require(!_contains(assetData, _id), "SortedVessels: List already contains the node");
+		require(!_contains(assetData, _id), "SortedTroves: List already contains the node");
 		// Node id must not be null
-		require(_id != address(0), "SortedVessels: Id cannot be zero");
+		require(_id != address(0), "SortedTroves: Id cannot be zero");
 		// NICR must be non-zero
-		require(_NICR != 0, "SortedVessels: NICR must be positive");
+		require(_NICR != 0, "SortedTroves: NICR must be positive");
 
 		address prevId = _prevId;
 		address nextId = _nextId;
@@ -131,7 +131,7 @@ contract SortedVessels is OwnableUpgradeable, UUPSUpgradeable, ISortedVessels, A
 	}
 
 	function remove(address _asset, address _id) external override {
-		_requireCallerIsVesselManager();
+		_requireCallerIsTroveManager();
 		_remove(_asset, _id);
 	}
 
@@ -143,7 +143,7 @@ contract SortedVessels is OwnableUpgradeable, UUPSUpgradeable, ISortedVessels, A
 		Data storage assetData = data[_asset];
 
 		// List must contain the node
-		require(_contains(assetData, _id), "SortedVessels: List does not contain the id");
+		require(_contains(assetData, _id), "SortedTroves: List does not contain the id");
 
 		Node storage node = assetData.nodes[_id];
 		if (assetData.size > 1) {
@@ -187,11 +187,11 @@ contract SortedVessels is OwnableUpgradeable, UUPSUpgradeable, ISortedVessels, A
 	 * @param _nextId Id of next node for the new insert position
 	 */
 	function reInsert(address _asset, address _id, uint256 _newNICR, address _prevId, address _nextId) external override {
-		_requireCallerIsBOorVesselM();
+		_requireCallerIsBOorTroveM();
 		// List must contain the node
-		require(contains(_asset, _id), "SortedVessels: List does not contain the id");
+		require(contains(_asset, _id), "SortedTroves: List does not contain the id");
 		// NICR must be non-zero
-		require(_newNICR != 0, "SortedVessels: NICR must be positive");
+		require(_newNICR != 0, "SortedTroves: NICR must be positive");
 
 		// Remove node from the list
 		_remove(_asset, _id);
@@ -280,22 +280,22 @@ contract SortedVessels is OwnableUpgradeable, UUPSUpgradeable, ISortedVessels, A
 			return isEmpty(_asset);
 		} else if (_prevId == address(0)) {
 			// `(null, _nextId)` is a valid insert position if `_nextId` is the head of the list
-			return data[_asset].head == _nextId && _NICR >= IVesselManager(vesselManager).getNominalICR(_asset, _nextId);
+			return data[_asset].head == _nextId && _NICR >= ITroveManager(troveManager).getNominalICR(_asset, _nextId);
 		} else if (_nextId == address(0)) {
 			// `(_prevId, null)` is a valid insert position if `_prevId` is the tail of the list
-			return data[_asset].tail == _prevId && _NICR <= IVesselManager(vesselManager).getNominalICR(_asset, _prevId);
+			return data[_asset].tail == _prevId && _NICR <= ITroveManager(troveManager).getNominalICR(_asset, _prevId);
 		} else {
 			// `(_prevId, _nextId)` is a valid insert position if they are adjacent nodes and `_NICR` falls between the two nodes' NICRs
 			return
 				data[_asset].nodes[_prevId].nextId == _nextId &&
-				IVesselManager(vesselManager).getNominalICR(_asset, _prevId) >= _NICR &&
-				_NICR >= IVesselManager(vesselManager).getNominalICR(_asset, _nextId);
+				ITroveManager(troveManager).getNominalICR(_asset, _prevId) >= _NICR &&
+				_NICR >= ITroveManager(troveManager).getNominalICR(_asset, _nextId);
 		}
 	}
 
 	/*
 	 * @dev Descend the list (larger NICRs to smaller NICRs) to find a valid insert position
-	 * @param _vesselManager VesselManager contract, passed in as param to save SLOAD’s
+	 * @param _troveManager TroveManager contract, passed in as param to save SLOAD’s
 	 * @param _NICR Node's NICR
 	 * @param _startId Id of node to start descending the list from
 	 */
@@ -303,7 +303,7 @@ contract SortedVessels is OwnableUpgradeable, UUPSUpgradeable, ISortedVessels, A
 		Data storage assetData = data[_asset];
 
 		// If `_startId` is the head, check if the insert position is before the head
-		if (assetData.head == _startId && _NICR >= IVesselManager(vesselManager).getNominalICR(_asset, _startId)) {
+		if (assetData.head == _startId && _NICR >= ITroveManager(troveManager).getNominalICR(_asset, _startId)) {
 			return (address(0), _startId);
 		}
 
@@ -321,7 +321,7 @@ contract SortedVessels is OwnableUpgradeable, UUPSUpgradeable, ISortedVessels, A
 
 	/*
 	 * @dev Ascend the list (smaller NICRs to larger NICRs) to find a valid insert position
-	 * @param _vesselManager VesselManager contract, passed in as param to save SLOAD’s
+	 * @param _troveManager TroveManager contract, passed in as param to save SLOAD’s
 	 * @param _NICR Node's NICR
 	 * @param _startId Id of node to start ascending the list from
 	 */
@@ -329,7 +329,7 @@ contract SortedVessels is OwnableUpgradeable, UUPSUpgradeable, ISortedVessels, A
 		Data storage assetData = data[_asset];
 
 		// If `_startId` is the tail, check if the insert position is after the tail
-		if (assetData.tail == _startId && _NICR <= IVesselManager(vesselManager).getNominalICR(_asset, _startId)) {
+		if (assetData.tail == _startId && _NICR <= ITroveManager(troveManager).getNominalICR(_asset, _startId)) {
 			return (_startId, address(0));
 		}
 
@@ -370,14 +370,14 @@ contract SortedVessels is OwnableUpgradeable, UUPSUpgradeable, ISortedVessels, A
 		address nextId = _nextId;
 
 		if (prevId != address(0)) {
-			if (!contains(_asset, prevId) || _NICR > IVesselManager(vesselManager).getNominalICR(_asset, prevId)) {
+			if (!contains(_asset, prevId) || _NICR > ITroveManager(troveManager).getNominalICR(_asset, prevId)) {
 				// `prevId` does not exist anymore or now has a smaller NICR than the given NICR
 				prevId = address(0);
 			}
 		}
 
 		if (nextId != address(0)) {
-			if (!contains(_asset, nextId) || _NICR < IVesselManager(vesselManager).getNominalICR(_asset, nextId)) {
+			if (!contains(_asset, nextId) || _NICR < ITroveManager(troveManager).getNominalICR(_asset, nextId)) {
 				// `nextId` does not exist anymore or now has a larger NICR than the given NICR
 				nextId = address(0);
 			}
@@ -400,14 +400,14 @@ contract SortedVessels is OwnableUpgradeable, UUPSUpgradeable, ISortedVessels, A
 
 	// --- 'require' functions ---
 
-	function _requireCallerIsVesselManager() internal view {
-		require(msg.sender == vesselManager, "SortedVessels: Caller is not the VesselManager");
+	function _requireCallerIsTroveManager() internal view {
+		require(msg.sender == troveManager, "SortedTroves: Caller is not the TroveManager");
 	}
 
-	function _requireCallerIsBOorVesselM() internal view {
+	function _requireCallerIsBOorTroveM() internal view {
 		require(
-			msg.sender == borrowerOperations || msg.sender == vesselManager,
-			"SortedVessels: Caller is neither BO nor VesselM"
+			msg.sender == borrowerOperations || msg.sender == troveManager,
+			"SortedTroves: Caller is neither BO nor TroveM"
 		);
 	}
 

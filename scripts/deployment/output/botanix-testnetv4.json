@@ -1,0 +1,32 @@
+{
+  "ActivePool": {
+    "address": "0xB281d0FcaE4dEB0b01117927D34E4183Dac9338d",
+    "txHash": "0x06dffd95412b4be54fa0ce1d5bb8985552ac12093c88625dada0b2ceafd412b7",
+    "implAddress": "0xDE567711D52BC20265CFa446452e1D356D26De2B"
+  },
+  "AdminContract": {
+    "address": "0x26E70a40e9C6d424E4d2bccae9eD37593Bd4a9Ca",
+    "txHash": "0x86abae2135311b47cbd520eddb3548903c9d6c8709d69b3faebc33946d79fb40",
+    "implAddress": "0x47f2b601628A0aF8F7a801128FB95482AF3f7133"
+  },
+  "BorrowerOperations": {
+    "address": "0x481711F1C7eE160Ec855f4C8dEDCAB0E78bEE58C",
+    "txHash": "0xf24b8a127630ee890344f7b5b7b00be99482a58a750423cc3a90968155ddbfd7",
+    "implAddress": "0xb331D1C2A986BAD165f7bBCF03eDDf96ebdb3F0c"
+  },
+  "CollSurplusPool": {
+    "address": "0xB96E5bA569502664615cb81EE36882265a3C5c98",
+    "txHash": "0xcf64793fc3e777b80dfef40ab1ec0a60a9f5d768b9901551d08fcd8e479bc98a",
+    "implAddress": "0xB5abA0ad22ef251216743CA8aC302b1936a9dDcc"
+  },
+  "DefaultPool": {
+    "address": "0xA80Bdb9DfB9b044cF5f9B7baAE9f67587aEE18A7",
+    "txHash": "0x94385ec85496eafa5200e5f16b7d72fd3a88358c70a5498beab95e8008567519",
+    "implAddress": "0x66C7B1fcB169284e54117bB4eED938cd68e6949D"
+  },
+  "FeeCollector": {
+    "address": "0x936176767eA674696529e894Dc986a5518fFD64D",
+    "txHash": "0x53d9ae9b9933726351cd8b7201da17fd37347ab84bc4d5f1cf24e0030647b625",
+    "implAddress": "0x2cF8c839c7D4bA62eed414323486A49d8881DC52"
+  }
+}

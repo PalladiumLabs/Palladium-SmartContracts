@@ -1,9 +1,9 @@
 import "@nomicfoundation/hardhat-toolbox"
-import "@nomiclabs/hardhat-truffle5"
-import "@nomiclabs/hardhat-ethers"
-import "@nomiclabs/hardhat-etherscan"
+import "@nomicfoundation/hardhat-ethers"
+import "@nomicfoundation/hardhat-verify"
 import "@openzeppelin/hardhat-upgrades"
 import "solidity-coverage"
+import "hardhat-contract-sizer"
 
 import { task } from "hardhat/config"
 
@@ -20,6 +20,22 @@ task("deploy-core-localhost", "Deploys contracts to Localhost").setAction(
 task("deploy-core-arbitrum", "Deploys contracts to Arbitrum").setAction(
 	async (_, hre) => await new CoreDeployer(hre, DeploymentTarget.Arbitrum).run()
 )
+task("deploy-core-arbitrum-fork", "Deploys contracts to arbitrum-fork").setAction(
+	async (_, hre) => await new CoreDeployer(hre, DeploymentTarget.ArbitrumFork).run()
+)
+
+task("deploy-core-core-testnet", "Deploys contracts to core-testnet").setAction(
+	async (_, hre) => await new CoreDeployer(hre, DeploymentTarget.CoreTestnet).run()
+)
+
+task("deploy-core-botanix-testnet", "Deploys contracts to botanix-testnet").setAction(
+	async (_, hre) => await new CoreDeployer(hre, DeploymentTarget.BotanixTestnet).run()
+)
+
+task("deploy-core-bitfinity", "Deploys contracts to bitfinity").setAction(
+	async (_, hre) => await new CoreDeployer(hre, DeploymentTarget.BitFinity).run()
+)
+
 task("deploy-core-mainnet", "Deploys contracts to Mainnet").setAction(
 	async (_, hre) => await new CoreDeployer(hre, DeploymentTarget.Mainnet).run()
 )
@@ -52,6 +68,7 @@ module.exports = {
 			{
 				version: "0.8.19",
 				settings: {
+					//viaIR: true,
 					optimizer: {
 						enabled: true,
 						runs: 200,
@@ -64,12 +81,14 @@ module.exports = {
 				},
 			},
 		],
+
+		plugins: ["hardhat-contract-sizer"],
 	},
 	networks: {
 		hardhat: {
 			allowUnlimitedContractSize: true,
-			// accounts: [{ privateKey: process.env.DEPLOYER_PRIVATEKEY, balance: (10e18).toString() }, ...accountsList],
-			accounts: accountsList,
+			accounts: [{ privateKey: process.env.DEPLOYER_PRIVATEKEY, balance: (10e18).toString() }, ...accountsList],
+			// accounts: accountsList,
 		},
 		// hardhat: {
 		// 	accounts: accountsList,
@@ -91,7 +110,40 @@ module.exports = {
 		// },
 		arbitrum: {
 			url: `https://arb1.arbitrum.io/rpc`,
+			// url: `http://127.0.0.1:8545/`,
+			// blockNumber: 249548556,
+			// chainId: 42161,
 			accounts: [`${process.env.DEPLOYER_PRIVATEKEY}`],
+		},
+		"arbitrum-fork": {
+			url: `https://arb1.arbitrum.io/rpc`,
+			// url: `http://127.0.0.1:8545/`,
+			// blockNumber: 249548556,
+			// chainId: 42161,
+			accounts: [`${process.env.DEPLOYER_PRIVATEKEY}`],
+		},
+		"core-testnet": {
+			// url: `https://rpc.test.btcs.network`,
+			url: `http://127.0.0.1:8545/`,
+			// blockNumber: 249548556,
+			// chainId: 42161,
+			accounts: [`${process.env.DEPLOYER_PRIVATEKEY}`],
+			gasPrice: 35000000000, // 4 Gwei
+		},
+		"botanix-testnet": {
+			url: `https://node.botanixlabs.dev`,
+			// url: `http://127.0.0.1:8545/`,
+			accounts: [`${process.env.DEPLOYER_PRIVATEKEY}`],
+			//gas limit
+			// gasPrice: 0.000000007, // 7
+		},
+		bitfinity: {
+			url: `https://testnet.bitfinity.network`,
+			// url: `http://127.0.0.1:8545/`,
+			// blockNumber: 249548556,
+			// chainId: 355113,
+			accounts: [`${process.env.DEPLOYER_PRIVATEKEY}`],
+			gasPrice: 35000000000, // 4 Gwei
 		},
 		"arbitrum-sepolia": {
 			url: `https://sepolia-rollup.arbitrum.io/rpc`,
@@ -127,6 +179,7 @@ module.exports = {
 		apiKey: {
 			arbitrum: `${process.env.ARBITRUM_ETHERSCAN_API_KEY}`,
 			"arbitrum-sepolia": `${process.env.ARBITRUM_ETHERSCAN_API_KEY}`,
+			"arbitrum-fork": `${process.env.ARBITRUM_ETHERSCAN_API_KEY}`,
 			holesky: `${process.env.ETHERSCAN_API_KEY}`,
 			linea: `${process.env.LINEA_ETHERSCAN_API_KEY}`,
 			mantle: ``,
@@ -150,6 +203,14 @@ module.exports = {
 					browserURL: "https://sepolia.arbiscan.io",
 				},
 			},
+			// {
+			// 	network: "arbitrum-fork",
+			// 	chainId: 421614,
+			// 	urls: {
+			// 		apiURL: "https://api.arbiscan.io/api",
+			// 		browserURL: "https://arbiscan.io/",
+			// 	},
+			// },
 			{
 				network: "holesky",
 				chainId: 17_000,

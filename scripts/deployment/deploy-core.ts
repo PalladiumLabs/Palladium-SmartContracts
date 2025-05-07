@@ -4,9 +4,11 @@ import {
 	getImplementationAddressFromProxy,
 	EthereumProvider,
 } from "@openzeppelin/upgrades-core"
-import { Overrides, Wallet, formatUnits } from "ethers"
+import { Overrides, Wallet, utils, constants } from "ethers"
+// import { utils.formatUnits } from "utils"
 import { ZERO_ADDRESS } from "@openzeppelin/test-helpers/src/constants"
 import fs from "fs"
+import { ethers } from "ethers"
 
 /**
  * Available target networks; each should have a matching file in the config folder.
@@ -19,7 +21,11 @@ export enum DeploymentTarget {
 	Mainnet = "mainnet",
 	Mantle = "mantle",
 	Optimism = "optimism",
-	PolygonZkEvm = "polygon-zkevm"
+	PolygonZkEvm = "polygon-zkevm",
+	ArbitrumFork = "arbitrum-fork",
+	CoreTestnet = "core-testnet",
+	BitFinity = "bitfinity",
+	BotanixTestnet = "botanix-testnet",
 }
 
 /**
@@ -34,6 +40,7 @@ export class CoreDeployer {
 	state: any
 	targetNetwork: DeploymentTarget
 	feeData: Overrides | undefined
+	private wallet: Wallet
 
 	constructor(hre: HardhatRuntimeEnvironment, targetNetwork: DeploymentTarget) {
 		this.targetNetwork = targetNetwork
@@ -43,7 +50,9 @@ export class CoreDeployer {
 		}
 		this.config = configParams
 		this.hre = hre
-		this.deployerWallet = new Wallet(process.env.DEPLOYER_PRIVATEKEY, this.hre.ethers.provider)
+		const provider = hre.ethers.provider
+		this.deployerWallet = new Wallet(process.env.DEPLOYER_PRIVATEKEY!, provider)
+		console.log("this.targetNetwork", this.targetNetwork)
 	}
 
 	isLocalhostDeployment = () => DeploymentTarget.Localhost == this.targetNetwork
@@ -53,10 +62,14 @@ export class CoreDeployer {
 			DeploymentTarget.GoerliTestnet,
 			DeploymentTarget.ArbitrumGoerliTestnet,
 			DeploymentTarget.OptimismGoerliTestnet,
+			DeploymentTarget.CoreTestnet,
+			DeploymentTarget.BitFinity,
+			DeploymentTarget.BotanixTestnet,
 		].includes(this.targetNetwork)
 	isLayer2Deployment = () =>
 		[
 			DeploymentTarget.Arbitrum,
+			DeploymentTarget.ArbitrumFork,
 			DeploymentTarget.ArbitrumGoerliTestnet,
 			DeploymentTarget.OptimismGoerliTestnet,
 			DeploymentTarget.Optimism,
@@ -68,16 +81,21 @@ export class CoreDeployer {
 	async run() {
 		console.log(`Deploying Gravita Core on ${this.targetNetwork}...`)
 
-		this.feeData = <Overrides>{
-			maxFeePerGas: 4_000_000_000,
-			maxPriorityFeePerGas: 4_000_000_000,
-		}
+		// this.feeData = <Overrides>{
+		// 	gasPrice:0.000000007,
+		// 	// maxFeePerGas: 7,
+		// 	// maxPriorityFeePerGas: 7_000_000_000,
+		// }
+		// this.feeData = <Overrides>{
+		// 	maxFeePerGas: 100_000_000_000,
+		// 	maxPriorityFeePerGas: 100_000_000_000,
+		// }
 
 		await this.printDeployerBalance()
 
 		await this.loadOrDeployCoreContracts()
-		// await this.connectCoreContracts()
-		// await this.addCollaterals()
+		await this.connectCoreContracts()
+		await this.addCollaterals()
 
 		// do not hand off from admin to timelock for now
 		// await this.toggleContractSetupInitialization(this.coreContracts.adminContract)
@@ -87,7 +105,7 @@ export class CoreDeployer {
 		// do not transfer ownership for now
 		// await this.transferContractsOwnerships(this.coreContracts)
 
-		await this.printDeployerBalance()
+		// await this.printDeployerBalance()
 	}
 
 	/**
@@ -99,65 +117,107 @@ export class CoreDeployer {
 		console.log(`Deploying core contracts...`)
 		this.loadPreviousDeployment()
 
-		const activePool = await this.deployUpgradeable("ActivePool")
-		const adminContract = await this.deployUpgradeable("AdminContract")
-		const borrowerOperations = await this.deployUpgradeable("BorrowerOperations")
-		const collSurplusPool = await this.deployUpgradeable("CollSurplusPool")
-		const defaultPool = await this.deployUpgradeable("DefaultPool")
-		const feeCollector = await this.deployUpgradeable("FeeCollector")
-		const sortedVessels = await this.deployUpgradeable("SortedVessels")
-		const stabilityPool = await this.deployUpgradeable("StabilityPool")
-		const vesselManager = await this.deployUpgradeable("VesselManager")
-		const vesselManagerOperations = await this.deployUpgradeable("VesselManagerOperations")
+		try {
+			// Deploy all contracts first
+			const activePool = await this.deployUpgradeable("ActivePool")
+			const adminContract = await this.deployUpgradeable("AdminContract")
+			const borrowerOperations = await this.deployUpgradeable("BorrowerOperations")
+			const collSurplusPool = await this.deployUpgradeable("CollSurplusPool")
+			const defaultPool = await this.deployUpgradeable("DefaultPool")
+			const feeCollector = await this.deployUpgradeable("FeeCollector")
+			const sortedTroves = await this.deployUpgradeable("SortedTroves")
+			const stabilityPool = await this.deployUpgradeable("StabilityPool")
+			const troveManager = await this.deployUpgradeable("TroveManager")
+			const troveManagerOperations = await this.deployUpgradeable("TroveManagerOperations")
+			const gasPool = await this.deployNonUpgradeable("GasPool")
 
-		const gasPool = await this.deployNonUpgradeable("GasPool")
+			let priceFeed: any
+			if (this.isLocalhostDeployment()) {
+				priceFeed = await this.deployNonUpgradeable("PriceFeedTestnet")
+			} else {
+				priceFeed = await this.deployUpgradeable("PriceFeed")
+			}
 
-		let priceFeed: any
-		if (this.isLocalhostDeployment()) {
-			priceFeed = await this.deployNonUpgradeable("PriceFeedTestnet")
-		} else {
-			priceFeed = await this.deployUpgradeable("PriceFeed")
-		}
+			let timelockDelay: number
+			let timelockFactoryName: string
+			if (this.isTestnetDeployment()) {
+				timelockDelay = 5 * 60 // 5 minutes
+				timelockFactoryName = "TimelockTester"
+			} else {
+				timelockDelay = 2 * 86_400 // 2 days
+				timelockFactoryName = "Timelock"
+			}
+			const timelockParams = [timelockDelay, this.config.SYSTEM_PARAMS_ADMIN]
+			const timelock = await this.deployNonUpgradeable(timelockFactoryName, timelockParams)
 
-		let timelockDelay: number
-		let timelockFactoryName: string
-		if (this.isTestnetDeployment()) {
-			timelockDelay = 5 * 60 // 5 minutes
-			timelockFactoryName = "TimelockTester"
-		} else {
-			timelockDelay = 2 * 86_400 // 2 days
-			timelockFactoryName = "Timelock"
-		}
-		const timelockParams = [timelockDelay, this.config.SYSTEM_PARAMS_ADMIN]
-		const timelock = await this.deployNonUpgradeable(timelockFactoryName, timelockParams)
-		// if (this.config.ETHERSCAN_BASE_URL) {
-		// 	await this.verifyContract(timelockFactoryName, timelockParams)
-		// }
+			let debtToken: any
+			if (this.config.GRAI_TOKEN_ADDRESS) {
+				console.log(`Using existing DebtToken from ${this.config.GRAI_TOKEN_ADDRESS}`)
+				debtToken = await this.hre.ethers.getContractAt("DebtToken", this.config.GRAI_TOKEN_ADDRESS)
+			} else {
+				debtToken = await this.deployNonUpgradeable("DebtToken")
+			}
 
-		let debtToken: any
-		if (this.config.GRAI_TOKEN_ADDRESS) {
-			console.log(`Using existing DebtToken from ${this.config.GRAI_TOKEN_ADDRESS}`)
-			debtToken = await this.hre.ethers.getContractAt("DebtToken", this.config.GRAI_TOKEN_ADDRESS)
-		} else {
-			debtToken = await this.deployNonUpgradeable("DebtToken")
-			await debtToken.setAddresses(borrowerOperations.address, stabilityPool.address, vesselManager.address)
-		}
+			// Store all contracts
+			this.coreContracts = {
+				activePool,
+				adminContract,
+				borrowerOperations,
+				collSurplusPool,
+				debtToken,
+				defaultPool,
+				feeCollector,
+				gasPool,
+				priceFeed,
+				sortedTroves,
+				stabilityPool,
+				timelock,
+				troveManager,
+				troveManagerOperations,
+			}
 
-		this.coreContracts = {
-			activePool,
-			adminContract,
-			borrowerOperations,
-			collSurplusPool,
-			debtToken,
-			defaultPool,
-			feeCollector,
-			gasPool,
-			priceFeed,
-			sortedVessels,
-			stabilityPool,
-			timelock,
-			vesselManager,
-			vesselManagerOperations,
+			// Verify all contract addresses
+			console.log("\nVerifying contract addresses:")
+			for (const [name, contract] of Object.entries(this.coreContracts)) {
+				try {
+					const address = await contract.getAddress()
+					console.log(`${name}: ${address}`)
+					if (!address || address === ethers.ZeroAddress) {
+						throw new Error(`Invalid address for ${name}`)
+					}
+				} catch (e) {
+					console.error(`Error getting address for ${name}:`, e)
+					throw e
+				}
+			}
+
+			// Set addresses
+			console.log("\nSetting contract addresses...")
+			if (debtToken) {
+				try {
+					const [borrowerOpsAddr, stabilityPoolAddr, troveManagerAddr] = await Promise.all([
+						borrowerOperations.getAddress(),
+						stabilityPool.getAddress(),
+						troveManager.getAddress(),
+					])
+
+					console.log("Setting DebtToken addresses:", {
+						borrowerOps: borrowerOpsAddr,
+						stabilityPool: stabilityPoolAddr,
+						troveManager: troveManagerAddr,
+					})
+
+					await debtToken.setAddresses(borrowerOpsAddr, stabilityPoolAddr, troveManagerAddr)
+				} catch (e) {
+					console.error("Error setting DebtToken addresses:", e)
+					throw e
+				}
+			}
+
+			return this.coreContracts
+		} catch (e) {
+			console.error("Error in loadOrDeployCoreContracts:", e)
+			throw e
 		}
 	}
 
@@ -178,24 +238,42 @@ export class CoreDeployer {
 	async loadOrDeploy(contractName: string, isUpgradeable: boolean, params: string[]) {
 		let retry = 0
 		const maxRetries = 2
-		const timeout = 600_000 // 10 minutes
 		const factory = await this.getFactory(contractName)
 		const address = this.state[contractName]?.address
 		const alreadyDeployed = this.state[contractName] && address
 
+		const feeData = await this.hre.ethers.provider.getFeeData()
+		const minGasPrice = feeData.gasPrice
+		console.log("minGasPrice", ethers.formatUnits(minGasPrice || 0n, "gwei"))
+
 		if (!isUpgradeable) {
 			if (alreadyDeployed) {
-				// Existing non-upgradeable contract
 				console.log(`Using previous deployment: ${address} -> ${contractName}`)
 				return factory.attach(address)
 			} else {
-				// Non-Upgradeable contract, new deployment
 				console.log(`(Deploying ${contractName}...)`)
 				while (++retry < maxRetries) {
 					try {
-						const contract = await factory.deploy(...params, { ...this.feeData })
-						console.log(contract)
-						await this.updateState(contractName, contract, isUpgradeable)
+						const deploymentTx = await factory.deploy(...params, {
+							maxPriorityFeePerGas: 10n,
+							maxFeePerGas: 10n,
+						})
+
+						// Wait for deployment to complete
+						const contract = await deploymentTx.waitForDeployment()
+
+						// Get the deployment transaction
+						const tx = deploymentTx.deploymentTransaction()
+						if (!tx) {
+							throw new Error("No deployment transaction found")
+						}
+
+						const receipt = await tx.wait()
+						console.log(`- Gas Price (wei): ${receipt.gasPrice?.toString() || 0} wei`)
+						console.log(`- Gas Price (gwei): ${ethers.formatUnits(receipt.gasPrice || 0n, "gwei")} gwei`)
+						console.log("deployed")
+
+						await this.updateState(contractName, contract, isUpgradeable, tx)
 						return contract
 					} catch (e: any) {
 						console.log(`[Error: ${e.message}] Retrying...`)
@@ -203,32 +281,49 @@ export class CoreDeployer {
 				}
 				throw Error(`ERROR: Unable to deploy contract ${contractName} after ${maxRetries} attempts.`)
 			}
-		}
-		if (alreadyDeployed) {
-			// Existing upgradeable contract
-			const existingContract = factory.attach(address)
-			console.log(`Using previous deployment: ${address} -> ${contractName}`)
-			return existingContract
 		} else {
-			// Upgradeable contract, new deployment
-			console.log(`(Deploying ${contractName} [uups]...)`)
-			let opts: any = { kind: "uups" }
-			if (factory.interface.hasFunction("initialize()")) {
-				opts.initializer = "initialize()"
-			}
-			opts.txOverrides = this.feeData
-			while (++retry < maxRetries) {
-				try {
-					// @ts-ignore
-					const newContract = await upgrades.deployProxy(factory, opts)
-					console.log(newContract)
-					await this.updateState(contractName, newContract, isUpgradeable)
-					return newContract
-				} catch (e: any) {
-					console.log(`[Error: ${e.message}] Retrying...`)
+			if (alreadyDeployed) {
+				const existingContract = factory.attach(address)
+				console.log(`Using previous deployment: ${address} -> ${contractName}`)
+				return existingContract
+			} else {
+				console.log(`(Deploying ${contractName} [uups]...)`)
+				let opts: any = {
+					kind: "uups",
+					txOverrides: {
+						maxPriorityFeePerGas: 10n,
+						maxFeePerGas: 10n,
+					},
 				}
+
+				if (factory.interface.getFunction("initialize()")) {
+					opts.initializer = "initialize()"
+				}
+
+				while (++retry < maxRetries) {
+					try {
+						console.log("deploying")
+						const newContract = await upgrades.deployProxy(factory, [], opts)
+						await newContract.waitForDeployment()
+
+						const deployTx = await newContract.deploymentTransaction()
+						if (!deployTx) {
+							throw new Error("No deployment transaction found")
+						}
+
+						const receipt = await deployTx.wait()
+						console.log(`- Gas Price (wei): ${receipt.gasPrice?.toString() || 0} wei`)
+						console.log(`- Gas Price (gwei): ${ethers.formatUnits(receipt.gasPrice || 0n, "gwei")} gwei`)
+						console.log("deployed")
+
+						await this.updateState(contractName, newContract, isUpgradeable, deployTx)
+						return newContract
+					} catch (e: any) {
+						console.log(`[Error: ${e.message}] Retrying...`)
+					}
+				}
+				throw Error(`ERROR: Unable to deploy contract ${contractName} after ${maxRetries} attempts.`)
 			}
-			throw Error(`ERROR: Unable to deploy contract ${contractName} after ${maxRetries} attempts.`)
 		}
 	}
 
@@ -237,31 +332,39 @@ export class CoreDeployer {
 	 */
 	async connectCoreContracts() {
 		const setAddresses = async (contract: any) => {
-			const addresses = [
-				await this.coreContracts.activePool.getAddress(),
-				await this.coreContracts.adminContract.getAddress(),
-				await this.coreContracts.borrowerOperations.getAddress(),
-				await this.coreContracts.collSurplusPool.getAddress(),
-				await this.coreContracts.debtToken.getAddress(),
-				await this.coreContracts.defaultPool.getAddress(),
-				await this.coreContracts.feeCollector.getAddress(),
-				await this.coreContracts.gasPool.getAddress(),
-				await this.coreContracts.priceFeed.getAddress(),
-				await this.coreContracts.sortedVessels.getAddress(),
-				await this.coreContracts.stabilityPool.getAddress(),
-				await this.coreContracts.timelock.getAddress(),
-				this.config.TREASURY_WALLET,
-				await this.coreContracts.vesselManager.getAddress(),
-				await this.coreContracts.vesselManagerOperations.getAddress(),
-			]
-			// @ts-ignore
+			// Get addresses using getAddress() for ethers v6
+			const addresses = await Promise.all([
+				this.coreContracts.activePool.getAddress(),
+				this.coreContracts.adminContract.getAddress(),
+				this.coreContracts.borrowerOperations.getAddress(),
+				this.coreContracts.collSurplusPool.getAddress(),
+				this.coreContracts.debtToken.getAddress(),
+				this.coreContracts.defaultPool.getAddress(),
+				this.coreContracts.feeCollector.getAddress(),
+				this.coreContracts.gasPool.getAddress(),
+				this.coreContracts.priceFeed.getAddress(),
+				this.coreContracts.sortedTroves.getAddress(),
+				this.coreContracts.stabilityPool.getAddress(),
+				this.coreContracts.timelock.getAddress(),
+				this.config.TREASURY_WALLET, // This is already an address string
+				this.coreContracts.troveManager.getAddress(),
+				this.coreContracts.troveManagerOperations.getAddress(),
+			])
+
+			// Validate addresses
 			for (const [i, addr] of addresses.entries()) {
-				if (!addr || addr == constants.AddressZero) {
+				if (!addr || addr === ethers.ZeroAddress) {
 					throw new Error(`setAddresses :: Invalid address for index ${i}`)
 				}
 			}
-			await contract.setAddresses(addresses, { ...this.feeData })
+
+			await contract.setAddresses(addresses, {
+				maxPriorityFeePerGas: 10n,
+				maxFeePerGas: 10n,
+			})
 		}
+
+		// Connect each contract
 		for (const key in this.coreContracts) {
 			const contract = this.coreContracts[key]
 			if (contract.setAddresses && contract.isAddressSetupInitialized) {
@@ -271,9 +374,7 @@ export class CoreDeployer {
 					try {
 						await setAddresses(contract)
 					} catch (e) {
-						console.error(e)
-						console.log(`${key}.setAddresses() failed!`)
-						console.error(e)
+						console.error(`${key}.setAddresses() failed:`, e)
 					}
 				} else {
 					console.log(`${key}.setAddresses() already set!`)
@@ -282,15 +383,57 @@ export class CoreDeployer {
 				console.log(`(${key} has no setAddresses() or isAddressSetupInitialized() function)`)
 			}
 		}
+
+		// Set DebtToken addresses
 		try {
-			// console.log(`DebtToken.setAddresses()...`)
-			// await this.coreContracts.debtToken.setAddresses(
-			// 	this.coreContracts.borrowerOperations.address,
-			// 	this.coreContracts.stabilityPool.address,
-			// 	this.coreContracts.vesselManager.address
-			// )
+			const [borrowerOpsAddr, stabilityPoolAddr, troveManagerAddr] = await Promise.all([
+				this.coreContracts.borrowerOperations.getAddress(),
+				this.coreContracts.stabilityPool.getAddress(),
+				this.coreContracts.troveManager.getAddress(),
+			])
+
+			await this.sendAndWaitForTransaction(
+				this.coreContracts.debtToken.setAddresses(borrowerOpsAddr, stabilityPoolAddr, troveManagerAddr, {
+					maxPriorityFeePerGas: 10n,
+					maxFeePerGas: 10n,
+				})
+			)
+
+			const feeCollectorAddr = await this.coreContracts.feeCollector.getAddress()
+			await this.sendAndWaitForTransaction(
+				this.coreContracts.debtToken.addWhitelist(feeCollectorAddr, {
+					maxPriorityFeePerGas: 10n,
+					maxFeePerGas: 10n,
+				})
+			)
+
+			const timelockAddr = await this.coreContracts.timelock.getAddress()
+			console.log("time lock address", timelockAddr)
+
+			const troveManagerOpsAddr = await this.coreContracts.troveManagerOperations.getAddress()
+			const data = this.coreContracts.troveManagerOperations.interface.encodeFunctionData(
+				"setRedemptionSofteningParam",
+				[9950]
+			)
+			console.log("data", data)
+
+			if (this.isTestnetDeployment()) {
+				try {
+					await this.sendAndWaitForTransaction(
+						this.coreContracts.timelock.setSoftening(troveManagerOpsAddr, "", data, {
+							maxPriorityFeePerGas: 10n,
+							maxFeePerGas: 10n,
+							gasLimit: 500000n, // Add explicit gas limit
+						})
+					)
+				} catch (error) {
+					console.warn("Warning: setSoftening failed, but continuing deployment:", error.message)
+					// Continue with deployment even if setSoftening fails
+				}
+			}
 		} catch (e) {
-			console.log(`DebtToken.setAddresses() failed!`)
+			console.error(`Error in connectCoreContracts:`, e)
+			throw e // Re-throw the error to halt deployment if critical
 		}
 	}
 
@@ -308,7 +451,6 @@ export class CoreDeployer {
 			await this.addPriceFeedOracle(coll)
 			await this.addCollateral(coll)
 			if (coll.name == "wETH") {
-				// use the same oracle for wETH and ETH
 				await this.addPriceFeedOracle({ ...coll, name: "ETH", address: constants.AddressZero })
 			}
 		}
@@ -327,7 +469,8 @@ export class CoreDeployer {
 			console.log(`[${coll.name}] AdminContract.addNewCollateral() ...`)
 			await this.sendAndWaitForTransaction(
 				this.coreContracts.adminContract.addNewCollateral(coll.address, coll.gasCompensation, decimals, {
-					...this.feeData,
+					maxPriorityFeePerGas: 10n,
+					maxFeePerGas: 10n,
 				})
 			)
 			console.log(`[${coll.name}] Collateral added @ ${coll.address}`)
@@ -339,6 +482,9 @@ export class CoreDeployer {
 			console.log(`[${coll.name}] Setting collateral params...`)
 			const defaultPercentDivisor = await this.coreContracts.adminContract.PERCENT_DIVISOR_DEFAULT()
 			const defaultRedemptionFeeFloor = await this.coreContracts.adminContract.REDEMPTION_FEE_FLOOR_DEFAULT()
+			const defaultBorrowingFee = await this.coreContracts.adminContract.BORROWING_FEE_DEFAULT()
+
+			console.log(" coll.borrowingFee", coll.borrowingFee)
 			await this.sendAndWaitForTransaction(
 				this.coreContracts.adminContract.setCollateralParameters(
 					coll.address,
@@ -349,14 +495,19 @@ export class CoreDeployer {
 					coll.mintCap,
 					defaultPercentDivisor,
 					defaultRedemptionFeeFloor,
-					{ ...this.feeData }
+					{
+						maxPriorityFeePerGas: 10n,
+						maxFeePerGas: 10n,
+					}
 				)
 			)
+			const redeemTimestamp = (await this.hre.ethers.provider.getBlock("latest")).timestamp
+
 			await this.sendAndWaitForTransaction(
-				this.coreContracts.adminContract.setRedemptionBlockTimestamp(
-					coll.address,
-					coll.redemptionBlockTimestamp
-				)
+				this.coreContracts.adminContract.setRedemptionBlockTimestamp(coll.address, redeemTimestamp, {
+					maxPriorityFeePerGas: 10n,
+					maxFeePerGas: 10n,
+				})
 			)
 			console.log(`[${coll.name}] AdminContract.setCollateralParameters() -> ok`)
 		}
@@ -367,6 +518,7 @@ export class CoreDeployer {
 	 */
 	async addPriceFeedOracle(coll: any) {
 		const oracleRecord = await this.coreContracts.priceFeed.oracles(coll.address)
+
 		if (oracleRecord.decimals == 0) {
 			const owner = await this.coreContracts.priceFeed.owner()
 			if (owner != this.deployerWallet.address) {
@@ -376,19 +528,27 @@ export class CoreDeployer {
 				return
 			}
 			console.log(`[${coll.name}] PriceFeed.setOracle()`)
-			const oracleProviderType = 1 // IPriceFeed.sol :: enum ProviderType.API3
+			const oracleProviderType = 0
 			const isFallback = false
+			console.log("ccoll.oracleIsEthIndexed", coll.oracleIsEthIndexed)
+			console.log("coll.oracleTimeoutSeconds", coll.oracleTimeoutSeconds)
+			console.log("coll.oracleProviderType", coll.oracleProviderType)
+
 			await this.sendAndWaitForTransaction(
 				this.coreContracts.priceFeed.setOracle(
 					coll.address,
 					coll.oracleAddress,
-					oracleProviderType,
+					coll.oracleProviderType,
 					coll.oracleTimeoutSeconds,
 					coll.oracleIsEthIndexed,
 					isFallback,
-					{ ...this.feeData }
+					{
+						maxPriorityFeePerGas: 10n,
+						maxFeePerGas: 10n,
+					}
 				)
 			)
+
 			console.log(`[${coll.name}] Oracle Price Feed has been set @ ${coll.oracleAddress}`)
 		} else {
 			if (oracleRecord.oracleAddress == coll.oracleAddress) {
@@ -423,7 +583,10 @@ export class CoreDeployer {
 				} else {
 					try {
 						await this.sendAndWaitForTransaction(
-							(contract as any).transferOwnership(upgradesAdmin, { ...this.feeData })
+							(contract as any).transferOwnership(upgradesAdmin, {
+								maxPriorityFeePerGas: 10n,
+								maxFeePerGas: 10n,
+							})
 						)
 						console.log(` - ${name} -> Owner set to CONTRACT_UPGRADES_ADMIN @ ${upgradesAdmin}`)
 					} catch (e: any) {
@@ -448,7 +611,12 @@ export class CoreDeployer {
 		if (isSetupInitialized) {
 			console.log(`${name} is already initialized!`)
 		} else {
-			await this.sendAndWaitForTransaction(contract.setSetupIsInitialized({ ...this.feeData }))
+			await this.sendAndWaitForTransaction(
+				contract.setSetupIsInitialized({
+					maxPriorityFeePerGas: 10n,
+					maxFeePerGas: 10n,
+				})
+			)
 			console.log(`${name} has been initialized`)
 		}
 	}
@@ -464,17 +632,27 @@ export class CoreDeployer {
 	async printDeployerBalance() {
 		const prevBalance = this.deployerBalance
 		this.deployerBalance = await this.hre.ethers.provider.getBalance(this.deployerWallet.address)
-		const cost = prevBalance ? formatUnits(prevBalance - this.deployerBalance) : 0
+		const cost = prevBalance ? ethers.formatUnits(prevBalance - this.deployerBalance) : 0
 		console.log(
-			`${this.deployerWallet.address} Balance: ${formatUnits(this.deployerBalance!)} ${
+			`${this.deployerWallet.address} Balance: ${ethers.formatUnits(this.deployerBalance)} ${
 				cost ? `(Deployment cost: ${cost})` : ""
 			}`
 		)
 	}
 
 	async sendAndWaitForTransaction(txPromise: any) {
-		const tx = await txPromise
-		await tx.wait(this.config.TX_CONFIRMATIONS)
+		try {
+			const tx = await txPromise
+			await tx.wait(this.config.TX_CONFIRMATIONS)
+			return tx
+		} catch (error: any) {
+			console.error("Transaction failed:", {
+				error: error.message,
+				code: error.code,
+				reason: error.reason,
+			})
+			throw error
+		}
 	}
 
 	loadPreviousDeployment() {
@@ -491,16 +669,26 @@ export class CoreDeployer {
 		fs.writeFileSync(this.config.OUTPUT_FILE, deploymentStateJSON)
 	}
 
-	async updateState(contractName: string, contract: any, isUpgradeable: boolean) {
+	async updateState(
+		contractName: string,
+		contract: any,
+		isUpgradeable: boolean,
+		deploymentTransaction?: ethers.ContractTransactionResponse
+	) {
 		console.log(`(Updating state...)`)
+
+		// Get the contract address
+		const contractAddress = await contract.getAddress()
+
 		this.state[contractName] = {
-			address: await contract.getAddress(),
-			txHash: contract.deploymentTransaction().hash,
+			address: contractAddress,
+			txHash: deploymentTransaction ? deploymentTransaction.hash : undefined,
 		}
+
 		if (isUpgradeable) {
 			try {
 				const provider: EthereumProvider = this.deployerWallet.provider as unknown as EthereumProvider
-				const implAddress = await getImplementationAddressFromProxy(provider, await contract.getAddress())
+				const implAddress = await getImplementationAddressFromProxy(provider, contractAddress)
 				console.log(`(ImplAddress: ${implAddress})`)
 				this.state[contractName].implAddress = implAddress
 			} catch (e: any) {
@@ -508,6 +696,7 @@ export class CoreDeployer {
 				console.log(`Unable to find implAddress for ${contractName}`)
 			}
 		}
+
 		this.saveDeployment()
 	}
 
@@ -537,9 +726,9 @@ export class CoreDeployer {
 			await this.verifyContract("FeeCollector")
 			await this.verifyContract("GasPool")
 			await this.verifyContract("PriceFeed")
-			await this.verifyContract("SortedVessels")
+			await this.verifyContract("SortedTroves")
 			await this.verifyContract("StabilityPool")
-			await this.verifyContract("VesselManager")
+			await this.verifyContract("TroveManager")
 			await this.verifyContract("VesselManagerOperations")
 		}
 	}
@@ -559,7 +748,6 @@ export class CoreDeployer {
 				constructorArguments,
 			})
 		} catch (error: any) {
-			// if it was already verified, it’s like a success, so let’s move forward and save it
 			if (e.name != "NomicLabsHardhatPluginError") {
 				console.error(`Error verifying: ${e.name}`)
 				console.error(e)
@@ -570,3 +758,4 @@ export class CoreDeployer {
 		this.saveDeployment()
 	}
 }
+

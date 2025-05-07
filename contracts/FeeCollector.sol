@@ -20,8 +20,8 @@ contract FeeCollector is IFeeCollector, UUPSUpgradeable, OwnableUpgradeable, Add
 	string public constant NAME = "FeeCollector";
 
 	uint256 public constant MIN_FEE_DAYS = 1;
-	uint256 public constant MIN_FEE_FRACTION = 1 ether; // (1/26) fee divided by 26 weeks
-	uint256 public constant FEE_EXPIRATION_SECONDS = 0; // ~ 6 months, minus one week (MIN_FEE_DAYS)
+	uint256 public constant MIN_FEE_FRACTION = 1 ether; // All fee charged at the time of borrowing
+	uint256 public constant FEE_EXPIRATION_SECONDS = 0;
 
 	// State ------------------------------------------------------------------------------------------------------------
 

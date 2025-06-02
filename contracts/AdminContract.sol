@@ -138,6 +138,7 @@ contract AdminContract is IAdminContract, UUPSUpgradeable, OwnableUpgradeable, A
 		uint256 redemptionFeeFloor
 	) public override onlyTimelock {
 		collateralParams[_collateral].active = true;
+		require(mcr < ccr, "MCR must be less than CCR");
 		setBorrowingFee(_collateral, borrowingFee);
 		setCCR(_collateral, ccr);
 		setMCR(_collateral, mcr);
@@ -150,6 +151,7 @@ contract AdminContract is IAdminContract, UUPSUpgradeable, OwnableUpgradeable, A
 	function setIsActive(address _collateral, bool _active) external onlyTimelock {
 		CollateralParams storage collParams = collateralParams[_collateral];
 		collParams.active = _active;
+		emit statusChanged(_collateral, _active);
 	}
 
 	function setBorrowingFee(
@@ -322,6 +324,7 @@ contract AdminContract is IAdminContract, UUPSUpgradeable, OwnableUpgradeable, A
 	}
 
 	function authorizeUpgrade(address newImplementation) public {
+		require(newImplementation != address(0), "AdminContract: new implementation is the zero address");
 		_authorizeUpgrade(newImplementation);
 	}
 

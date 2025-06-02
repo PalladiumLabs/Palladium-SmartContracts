@@ -42,6 +42,7 @@ interface IAdminContract {
 	event RedemptionFeeFloorChanged(uint256 oldRedemptionFeeFloor, uint256 newRedemptionFeeFloor);
 	event MintCapChanged(uint256 oldMintCap, uint256 newMintCap);
 	event RedemptionBlockTimestampChanged(address _collateral, uint256 _blockTimestamp);
+	event statusChanged(address _collateral, bool _isActive);
 
 	// Functions --------------------------------------------------------------------------------------------------------
 

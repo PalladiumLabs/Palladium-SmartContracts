@@ -412,6 +412,7 @@ contract SortedTroves is OwnableUpgradeable, UUPSUpgradeable, ISortedTroves, Add
 	}
 
 	function authorizeUpgrade(address newImplementation) public {
+		require(newImplementation != address(0), "SortedTroves: New implementation cannot be zero address");
 		_authorizeUpgrade(newImplementation);
 	}
 

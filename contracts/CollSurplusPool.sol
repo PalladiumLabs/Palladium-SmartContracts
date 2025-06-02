@@ -90,6 +90,7 @@ contract CollSurplusPool is UUPSUpgradeable, OwnableUpgradeable, ICollSurplusPoo
 	}
 
 	function authorizeUpgrade(address newImplementation) public {
+		require(newImplementation != address(0), "CollSurplusPool: new implementation is the zero address");
 		_authorizeUpgrade(newImplementation);
 	}
 

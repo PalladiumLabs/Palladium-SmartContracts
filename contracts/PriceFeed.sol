@@ -208,6 +208,7 @@ contract PriceFeed is IPriceFeed, OwnableUpgradeable, UUPSUpgradeable, Addresses
 	}
 
 	function authorizeUpgrade(address newImplementation) public {
+		require(newImplementation != address(0), "PriceFeed: new implementation is the zero address");
 		_authorizeUpgrade(newImplementation);
 	}
 

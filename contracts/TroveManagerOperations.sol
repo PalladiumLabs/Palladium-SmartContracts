@@ -966,6 +966,7 @@ contract TroveManagerOperations is ITroveManagerOperations, UUPSUpgradeable, Ree
 	}
 
 	function authorizeUpgrade(address newImplementation) public {
+		require(newImplementation != address(0), "TroveManagerOperations: new implementation is zero address");
 		_authorizeUpgrade(newImplementation);
 	}
 

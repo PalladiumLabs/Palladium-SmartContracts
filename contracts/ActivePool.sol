@@ -129,6 +129,7 @@ contract ActivePool is OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgra
 	}
 
 	function authorizeUpgrade(address newImplementation) public {
+		require(newImplementation != address(0), "ActivePool: New implementation address cannot be zero");
 		_authorizeUpgrade(newImplementation);
 	}
 

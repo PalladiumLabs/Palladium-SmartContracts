@@ -325,6 +325,7 @@ contract FeeCollector is IFeeCollector, UUPSUpgradeable, OwnableUpgradeable, Add
 	}
 
 	function authorizeUpgrade(address newImplementation) public {
+		require(newImplementation != address(0), "FeeCollector: new implementation is the zero address");
 		_authorizeUpgrade(newImplementation);
 	}
 

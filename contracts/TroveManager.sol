@@ -699,6 +699,7 @@ contract TroveManager is ITroveManager, UUPSUpgradeable, ReentrancyGuardUpgradea
 	}
 
 	function authorizeUpgrade(address newImplementation) public {
+		require(newImplementation != address(0), "TroveManager: new implementation is the zero address");
 		_authorizeUpgrade(newImplementation);
 	}
 

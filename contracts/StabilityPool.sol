@@ -897,6 +897,7 @@ contract StabilityPool is ReentrancyGuardUpgradeable, UUPSUpgradeable, Palladium
 	}
 
 	function authorizeUpgrade(address newImplementation) public {
+		require(newImplementation != address(0), "StabilityPool: New implementation must not be zero address");
 		_authorizeUpgrade(newImplementation);
 	}
 

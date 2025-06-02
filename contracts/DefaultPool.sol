@@ -91,6 +91,7 @@ contract DefaultPool is OwnableUpgradeable, UUPSUpgradeable, IDefaultPool, Addre
 	}
 
 	function authorizeUpgrade(address newImplementation) public {
+		require(newImplementation != address(0), "DefaultPool: new implementation is the zero address");
 		_authorizeUpgrade(newImplementation);
 	}
 

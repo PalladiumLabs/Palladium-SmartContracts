@@ -653,6 +653,7 @@ contract BorrowerOperations is PalladiumBase, ReentrancyGuardUpgradeable, UUPSUp
 	}
 
 	function authorizeUpgrade(address newImplementation) public {
+		require(newImplementation != address(0), "BorrowerOperations: new implementation is the zero address");
 		_authorizeUpgrade(newImplementation);
 	}
 
